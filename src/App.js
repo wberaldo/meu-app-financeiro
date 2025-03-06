@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 
 const FinancialApp = () => {
+  // Estados para gerenciar perfis
+  const [profiles, setProfiles] = useState([]);
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [newProfileName, setNewProfileName] = useState('');
+
   // Estados para armazenar os dados financeiros
   const [income, setIncome] = useState('');
   const [incomeList, setIncomeList] = useState([]);
@@ -21,23 +26,70 @@ const FinancialApp = () => {
   const [newExpenseDescription, setNewExpenseDescription] = useState('');
   const [newRecurringDescription, setNewRecurringDescription] = useState('');
 
-  // Carregar dados do localStorage
+  // Carregar perfis e dados do localStorage
   useEffect(() => {
-    const savedIncomeList = localStorage.getItem('incomeList');
-    const savedExpenseList = localStorage.getItem('expenseList');
-    const savedRecurringList = localStorage.getItem('recurringList');
-
-    if (savedIncomeList) setIncomeList(JSON.parse(savedIncomeList));
-    if (savedExpenseList) setExpenseList(JSON.parse(savedExpenseList));
-    if (savedRecurringList) setRecurringList(JSON.parse(savedRecurringList));
+    const savedProfiles = localStorage.getItem('profiles');
+    if (savedProfiles) {
+      setProfiles(JSON.parse(savedProfiles));
+    }
   }, []);
 
-  // Salvar dados no localStorage quando atualizados
+  // Carregar dados do perfil atual
   useEffect(() => {
-    localStorage.setItem('incomeList', JSON.stringify(incomeList));
-    localStorage.setItem('expenseList', JSON.stringify(expenseList));
-    localStorage.setItem('recurringList', JSON.stringify(recurringList));
+    if (currentProfile) {
+      const profileData = profiles.find(p => p.name === currentProfile);
+      if (profileData) {
+        setIncomeList(profileData.incomeList || []);
+        setExpenseList(profileData.expenseList || []);
+        setRecurringList(profileData.recurringList || []);
+      }
+    }
+  }, [currentProfile, profiles]);
+
+  // Salvar perfis no localStorage quando atualizados
+  useEffect(() => {
+    if (currentProfile) {
+      const updatedProfiles = profiles.map(p => 
+        p.name === currentProfile 
+          ? { ...p, incomeList, expenseList, recurringList } 
+          : p
+      );
+      setProfiles(updatedProfiles);
+      localStorage.setItem('profiles', JSON.stringify(updatedProfiles));
+    }
   }, [incomeList, expenseList, recurringList]);
+
+  // Funções para gerenciar perfis
+  const createProfile = () => {
+    if (newProfileName.trim() === '') return;
+
+    const newProfile = {
+      name: newProfileName,
+      incomeList: [],
+      expenseList: [],
+      recurringList: []
+    };
+
+    setProfiles([...profiles, newProfile]);
+    setCurrentProfile(newProfileName);
+    setNewProfileName('');
+  };
+
+  const switchProfile = (profileName) => {
+    setCurrentProfile(profileName);
+  };
+
+  const deleteProfile = (profileName) => {
+    const updatedProfiles = profiles.filter(p => p.name !== profileName);
+    setProfiles(updatedProfiles);
+    localStorage.setItem('profiles', JSON.stringify(updatedProfiles));
+    if (currentProfile === profileName) {
+      setCurrentProfile(null);
+      setIncomeList([]);
+      setExpenseList([]);
+      setRecurringList([]);
+    }
+  };
 
   // Funções para adicionar receitas e despesas
   const addIncome = () => {
@@ -172,6 +224,47 @@ const FinancialApp = () => {
           Controle Financeiro Neon
         </h1>
       </header>
+
+      {/* Gerenciamento de Perfis */}
+      <div className="px-6 py-4 border-b border-gray-800">
+        <div className="flex flex-col md:flex-row gap-4">
+          <input
+            type="text"
+            placeholder="Novo perfil"
+            value={newProfileName}
+            onChange={(e) => setNewProfileName(e.target.value)}
+            className="bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
+          <button
+            onClick={createProfile}
+            className="bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-md px-6 py-2 transition-colors"
+          >
+            Criar Perfil
+          </button>
+        </div>
+        <div className="mt-4">
+          {profiles.map((profile) => (
+            <div key={profile.name} className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => switchProfile(profile.name)}
+                className={`px-4 py-2 rounded-md transition-all duration-300 ${
+                  currentProfile === profile.name
+                    ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/50'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                {profile.name}
+              </button>
+              <button
+                onClick={() => deleteProfile(profile.name)}
+                className="text-red-400 hover:text-red-300"
+              >
+                Remover
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Abas */}
       <div className="flex justify-center my-6">
