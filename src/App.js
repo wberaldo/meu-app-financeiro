@@ -15,6 +15,12 @@ const FinancialApp = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  // Estados para edição
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [editingRecurringId, setEditingRecurringId] = useState(null);
+  const [newExpenseDescription, setNewExpenseDescription] = useState('');
+  const [newRecurringDescription, setNewRecurringDescription] = useState('');
+
   // Carregar dados do localStorage
   useEffect(() => {
     const savedIncomeList = localStorage.getItem('incomeList');
@@ -87,6 +93,33 @@ const FinancialApp = () => {
     setRecurringList(recurringList.filter(item => item.id !== id));
   };
 
+  // Funções para editar descrição
+  const startEditingExpense = (id, description) => {
+    setEditingExpenseId(id);
+    setNewExpenseDescription(description);
+  };
+
+  const startEditingRecurring = (id, description) => {
+    setEditingRecurringId(id);
+    setNewRecurringDescription(description);
+  };
+
+  const saveEditedExpense = (id) => {
+    setExpenseList(expenseList.map(item =>
+      item.id === id ? { ...item, description: newExpenseDescription } : item
+    ));
+    setEditingExpenseId(null);
+    setNewExpenseDescription('');
+  };
+
+  const saveEditedRecurring = (id) => {
+    setRecurringList(recurringList.map(item =>
+      item.id === id ? { ...item, description: newRecurringDescription } : item
+    ));
+    setEditingRecurringId(null);
+    setNewRecurringDescription('');
+  };
+
   // Funções para filtrar dados por mês
   const filteredIncomeList = incomeList.filter(item => {
     const itemDate = new Date(item.date);
@@ -133,12 +166,14 @@ const FinancialApp = () => {
 
   return (
     <div className="min-h-screen bg-black text-gray-100 font-sans">
+      {/* Cabeçalho */}
       <header className="px-6 py-4 border-b border-gray-800">
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
           Controle Financeiro Neon
         </h1>
       </header>
 
+      {/* Abas */}
       <div className="flex justify-center my-6">
         <div className="flex space-x-2 bg-gray-900 rounded-lg p-1">
           <button 
@@ -147,8 +182,8 @@ const FinancialApp = () => {
               activeTab === 'dashboard' 
                 ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/50' 
                 : 'text-gray-400 hover:text-cyan-400'
-            }`}
-          >
+            }`}  
+            >
             Dashboard
           </button>
           <button 
@@ -157,8 +192,8 @@ const FinancialApp = () => {
               activeTab === 'income' 
                 ? 'bg-gradient-to-r from-green-400 to-teal-500 text-white shadow-lg shadow-green-500/50' 
                 : 'text-gray-400 hover:text-green-400'
-            }`}
-          >
+            }`} 
+            >
             Receitas
           </button>
           <button 
@@ -168,7 +203,7 @@ const FinancialApp = () => {
                 ? 'bg-gradient-to-r from-red-400 to-pink-500 text-white shadow-lg shadow-red-500/50' 
                 : 'text-gray-400 hover:text-red-400'
             }`}
-          >
+            >
             Despesas
           </button>
           <button 
@@ -178,12 +213,13 @@ const FinancialApp = () => {
                 ? 'bg-gradient-to-r from-orange-400 to-yellow-500 text-white shadow-lg shadow-orange-500/50' 
                 : 'text-gray-400 hover:text-orange-400'
             }`}
-          >
+            >
             Recorrentes
           </button>
         </div>
       </div>
 
+      {/* Seletor de Mês e Ano */}
       <div className="flex justify-center mb-6">
         <div className="flex space-x-4">
           <select 
@@ -207,6 +243,7 @@ const FinancialApp = () => {
         </div>
       </div>
 
+      {/* Conteúdo Principal */}
       <div className="container mx-auto px-4">
         {activeTab === 'dashboard' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -360,11 +397,37 @@ const FinancialApp = () => {
                   <tbody>
                     {filteredExpenseList.map((item) => (
                       <tr key={item.id} className="border-b border-gray-800">
-                        <td className="py-3 px-4">{item.description}</td>
+                        <td className="py-3 px-4">
+                          {editingExpenseId === item.id ? (
+                            <input
+                              type="text"
+                              value={newExpenseDescription}
+                              onChange={(e) => setNewExpenseDescription(e.target.value)}
+                              className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
+                            />
+                          ) : (
+                            item.description
+                          )}
+                        </td>
                         <td className="py-3 px-4 text-right text-red-400 font-medium">
                           {formatCurrency(item.amount)}
                         </td>
                         <td className="py-3 px-4 text-right">
+                          {editingExpenseId === item.id ? (
+                            <button
+                              onClick={() => saveEditedExpense(item.id)}
+                              className="text-green-400 hover:text-green-300 mr-2"
+                            >
+                              Salvar
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => startEditingExpense(item.id, item.description)}
+                              className="text-blue-400 hover:text-blue-300 mr-2"
+                            >
+                              Editar
+                            </button>
+                          )}
                           <button
                             onClick={() => removeExpense(item.id)}
                             className="text-red-400 hover:text-red-300"
@@ -434,11 +497,37 @@ const FinancialApp = () => {
                   <tbody>
                     {recurringList.map((item) => (
                       <tr key={item.id} className="border-b border-gray-800">
-                        <td className="py-3 px-4">{item.description}</td>
+                        <td className="py-3 px-4">
+                          {editingRecurringId === item.id ? (
+                            <input
+                              type="text"
+                              value={newRecurringDescription}
+                              onChange={(e) => setNewRecurringDescription(e.target.value)}
+                              className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
+                            />
+                          ) : (
+                            item.description
+                          )}
+                        </td>
                         <td className="py-3 px-4 text-right text-orange-400 font-medium">
                           {formatCurrency(item.amount)}
                         </td>
                         <td className="py-3 px-4 text-right">
+                          {editingRecurringId === item.id ? (
+                            <button
+                              onClick={() => saveEditedRecurring(item.id)}
+                              className="text-green-400 hover:text-green-300 mr-2"
+                            >
+                              Salvar
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => startEditingRecurring(item.id, item.description)}
+                              className="text-blue-400 hover:text-blue-300 mr-2"
+                            >
+                              Editar
+                            </button>
+                          )}
                           <button
                             onClick={() => removeRecurring(item.id)}
                             className="text-red-400 hover:text-red-300"
