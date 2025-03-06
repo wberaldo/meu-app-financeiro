@@ -3,13 +3,13 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, si
 import { getDatabase, ref, set, onValue, push } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDEOkHL0Ne_xuYunyaMl9XqICgbeEljq8I",
-  authDomain: "meu-app-financeiro-526aa.firebaseapp.com",
-  projectId: "meu-app-financeiro-526aa",
-  storageBucket: "meu-app-financeiro-526aa.firebasestorage.app",
-  messagingSenderId: "466982549813",
-  appId: "1:466982549813:web:843016927fc6b5d6e2f47c",
-  measurementId: "G-0WG2L9Q32R"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
