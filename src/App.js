@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import { auth, database, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, ref, set, onValue, push } from './firebase';
+import { auth, database, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, ref, set, onValue, push, onAuthStateChanged } from './firebase';
 
 const FinancialApp = () => {
   // Estados para gerenciar login/cadastro
@@ -45,6 +45,23 @@ const FinancialApp = () => {
   const [installmentDescription, setInstallmentDescription] = useState('');
   const [installmentMonths, setInstallmentMonths] = useState(1);
   const [installmentList, setInstallmentList] = useState([]);
+
+  // Verificar o estado de autenticação ao carregar a aplicação
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // Usuário está autenticado
+        setUser(user);
+        loadProfiles(user.uid); // Carregar perfis do usuário
+      } else {
+        // Usuário não está autenticado
+        setUser(null);
+      }
+    });
+
+    // Limpar a inscrição ao desmontar o componente
+    return () => unsubscribe();
+  }, []);
 
   // Funções para login e cadastro (mantidas)
   const handleSignUp = async () => {
@@ -147,13 +164,6 @@ const FinancialApp = () => {
       alert('Erro ao salvar dados: ' + error.message);
     }
   };
-
-  // Carregar perfis quando o usuário logar
-  useEffect(() => {
-    if (user) {
-      loadProfiles(user.uid);
-    }
-  }, [user]);
 
   // Salvar dados financeiros quando houver alterações
   useEffect(() => {
