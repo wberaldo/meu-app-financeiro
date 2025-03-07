@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
-import { auth, database, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, ref, set, onValue, push, onAuthStateChanged } from './firebase';
+import { auth, database, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, ref, set, update, onValue, push, onAuthStateChanged, get } from './firebase';
+import nubankLogo from './assets/cards/nubank.png';
+import bbLogo from './assets/cards/bb.png';
+import santanderLogo from './assets/cards/santander.png';
 
 const FinancialApp = () => {
   // Estados para gerenciar login/cadastro
@@ -8,6 +11,10 @@ const FinancialApp = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+
+  // Recuperar o estado inicial do localStorage
+  const initialTab = localStorage.getItem('activeTab') || 'dashboard';
+  const initialProfile = localStorage.getItem('selectedProfile') || null;
 
   // Estados para armazenar os dados financeiros
   const [income, setIncome] = useState('');
@@ -21,7 +28,7 @@ const FinancialApp = () => {
   const [recurringList, setRecurringList] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // Estados para edição
   const [editingIncomeId, setEditingIncomeId] = useState(null);
@@ -33,10 +40,12 @@ const FinancialApp = () => {
   const [editingRecurringId, setEditingRecurringId] = useState(null);
   const [newRecurringAmount, setNewRecurringAmount] = useState('');
   const [newRecurringDescription, setNewRecurringDescription] = useState('');
+  const [selectedCard, setSelectedCard] = useState('');
+  const [selectedRecurringCard, setSelectedRecurringCard] = useState('');
 
   // Estados para perfis
   const [profiles, setProfiles] = useState([]);
-  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [selectedProfile, setSelectedProfile] = useState(initialProfile);
   const [newProfileName, setNewProfileName] = useState('');
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
@@ -44,48 +53,95 @@ const FinancialApp = () => {
   const [installmentExpense, setInstallmentExpense] = useState('');
   const [installmentDescription, setInstallmentDescription] = useState('');
   const [installmentMonths, setInstallmentMonths] = useState(1);
-  const [installmentList, setInstallmentList] = useState([]);
+  const [installmentList, setInstallmentList] = useState([]);  
+
+  // Função loadFinancialData com useCallback
+  const loadFinancialData = useCallback((profileId) => {
+    if (!user || !profileId) return;
+  
+    const financialDataRef = ref(database, `users/${user.uid}/profiles/${profileId}/financialData`);
+    onValue(financialDataRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setIncomeList(data.incomeList || []);
+        setExpenseList(data.expenseList || []);
+        setRecurringList(data.recurringList || []);
+        setInstallmentList(data.installmentList || []);
+      }
+    });
+  }, [user]); // 🔥 Agora essa função só muda quando `user` muda
+  
+  
 
   // Verificar o estado de autenticação ao carregar a aplicação
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // Usuário está autenticado
         setUser(user);
-        loadProfiles(user.uid); // Carregar perfis do usuário
+        const savedProfile = localStorage.getItem('selectedProfile');
+        if (savedProfile) {
+          selectProfile(savedProfile);
+        }
+        loadProfiles(user.uid);
       } else {
-        // Usuário não está autenticado
         setUser(null);
+        localStorage.removeItem('selectedProfile');
       }
     });
-
-    // Limpar a inscrição ao desmontar o componente
+  
     return () => unsubscribe();
   }, []);
 
-  // Funções para login e cadastro (mantidas)
+  // Salvar o estado no localStorage sempre que ele mudar
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedProfile) {
+      localStorage.setItem('selectedProfile', selectedProfile);
+    }
+  }, [selectedProfile]);
+
+  useEffect(() => {
+    const savedSelectedCard = localStorage.getItem(`selectedCard_${selectedProfile}`);
+    const savedSelectedRecurringCard = localStorage.getItem(`selectedRecurringCard_${selectedProfile}`);
+  
+    if (savedSelectedCard && savedSelectedCard !== selectedCard) {
+      setSelectedCard(savedSelectedCard);
+    }
+  
+    if (savedSelectedRecurringCard && savedSelectedRecurringCard !== selectedRecurringCard) {
+      setSelectedRecurringCard(savedSelectedRecurringCard);
+    }
+  }, [selectedProfile]); // 🔥 Agora evita o loop infinito  
+
+  // When creating a new user (in handleSignUp)
   const handleSignUp = async () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      setUser(user);
-
+  
+      // Cria a estrutura inicial do usuário
       const userId = user.uid;
-      const newProfileRef = ref(database, `users/${userId}/profiles`);
-      const newProfile = {
+      await set(ref(database, `users/${userId}/profiles/default`), {
         name: 'Principal',
-        financialData: { incomeList: [], expenseList: [], recurringList: [], installmentList: [] }
-      };
-
-      const newProfileKey = push(newProfileRef).key;
-      await set(ref(database, `users/${userId}/profiles/${newProfileKey}`), newProfile);
-
-      setSelectedProfile(newProfileKey);
+        financialData: {
+          incomeList: [],
+          expenseList: [],
+          recurringList: [],
+          installmentList: []
+        }
+      });
+  
+      setUser(user);
+      setSelectedProfile('default');
       alert('Cadastro realizado com sucesso! Perfil padrão criado.');
     } catch (error) {
       alert('Erro ao cadastrar: ' + error.message);
     }
   };
+
 
   const handleLogin = async () => {
     try {
@@ -107,14 +163,64 @@ const FinancialApp = () => {
   };
 
   // Função para carregar perfis do Firebase
-  const loadProfiles = async (userId) => {
-    const profilesRef = ref(database, `users/${userId}/profiles`);
-    onValue(profilesRef, (snapshot) => {
+    const loadProfiles = async (userId) => {
+      const profilesRef = ref(database, `users/${userId}/profiles`);
+      onValue(profilesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const profilesArray = Object.entries(data).map(([key, value]) => ({
+            id: key,
+            name: value.name
+          }));
+          setProfiles(profilesArray);
+          // Automatically select the first profile if none is selected
+          if (!selectedProfile && profilesArray.length > 0) {
+            selectProfile(profilesArray[0].id);
+          }
+        }
+      });
+    };
+
+  // Carregar o perfil selecionado e os dados após o refresh
+  useEffect(() => {
+    const savedProfile = localStorage.getItem('selectedProfile');
+    if (savedProfile) {
+      setSelectedProfile(savedProfile);
+      loadFinancialData(savedProfile); // Carrega os dados do perfil selecionado
+    }
+  }, []); // 🔥 Remova `loadFinancialData` das dependências  
+
+  // Carregar os dados financeiros sempre que o perfil selecionado mudar
+  useEffect(() => {
+    if (selectedProfile) {
+      loadFinancialData(selectedProfile);
+    }
+  }, [selectedProfile, loadFinancialData]); // Adicione loadFinancialData como dependência
+
+  // Função para selecionar um perfil
+  const selectProfile = (profileId) => {
+    if (!user || !profileId) return;
+    
+    const userId = user.uid;
+    const financialDataRef = ref(database, `users/${userId}/profiles/${profileId}/financialData`);
+    
+    onValue(financialDataRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setProfiles(Object.keys(data).map(key => ({ id: key, name: data[key].name })));
+        setIncomeList(data.incomeList || []);
+        setExpenseList(data.expenseList || []);
+        setRecurringList(data.recurringList || []);
+        setInstallmentList(data.installmentList || []);
+      } else {
+        setIncomeList([]);
+        setExpenseList([]);
+        setRecurringList([]);
+        setInstallmentList([]);
       }
     });
+    
+    setSelectedProfile(profileId);
+    setIsProfileDropdownOpen(false);
   };
 
   // Função para criar um novo perfil
@@ -139,39 +245,87 @@ const FinancialApp = () => {
     }
   };
 
-  // Função para selecionar um perfil
-  const selectProfile = async (profileId) => {
-    const userId = user.uid;
-    const financialDataRef = ref(database, `users/${userId}/profiles/${profileId}/financialData`);
-    onValue(financialDataRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setIncomeList(data.incomeList || []);
-        setExpenseList(data.expenseList || []);
-        setRecurringList(data.recurringList || []);
-        setInstallmentList(data.installmentList || []);
-      }
-    });
-    setSelectedProfile(profileId);
-    setIsProfileDropdownOpen(false);
+  const cards = {
+    nubank: {
+      name: 'Nubank',
+      logo: nubankLogo,
+    },
+    bb: {
+      name: 'BB',
+      logo: bbLogo,
+    },
+    santander: {
+      name: 'Santander',
+      logo: santanderLogo,
+    }
   };
+
+  const handleSelectCard = (card) => {
+    if (selectedCard !== card) {
+      setSelectedCard(card);
+      localStorage.setItem(`selectedCard_${selectedProfile}`, card);
+    }
+  };
+  
+  const handleSelectRecurringCard = (card) => {
+    if (selectedRecurringCard !== card) {
+      setSelectedRecurringCard(card);
+      localStorage.setItem(`selectedRecurringCard_${selectedProfile}`, card);
+    }
+  };  
 
   // Função para salvar dados financeiros no Firebase
   const saveFinancialData = async (userId, profileId, data) => {
+    if (!userId || !profileId) return;
+    
     try {
-      await set(ref(database, `users/${userId}/profiles/${profileId}/financialData`), data);
+      const dataRef = ref(database, `users/${userId}/profiles/${profileId}/financialData`);
+      const snapshot = await get(dataRef);
+      const existingData = snapshot.val() || {};
+      
+      const updatedData = {
+        ...existingData,
+        incomeList: data.incomeList || existingData.incomeList || [],
+        expenseList: data.expenseList || existingData.expenseList || [],
+        recurringList: data.recurringList || existingData.recurringList || [],
+        installmentList: data.installmentList || existingData.installmentList || []
+      };
+      await update(dataRef, updatedData);
     } catch (error) {
       alert('Erro ao salvar dados: ' + error.message);
     }
   };
 
-  // Salvar dados financeiros quando houver alterações
+  // In the useEffect that watches for data changes
   useEffect(() => {
     if (user && selectedProfile) {
       const financialData = { incomeList, expenseList, recurringList, installmentList };
-      saveFinancialData(user.uid, selectedProfile, financialData);
+  
+      // Evita salvar se os dados não mudaram
+      const previousData = JSON.stringify(localStorage.getItem(`financialData_${selectedProfile}`));
+      const newData = JSON.stringify(financialData);
+  
+      if (previousData !== newData) {
+        saveFinancialData(user.uid, selectedProfile, financialData);
+        localStorage.setItem(`financialData_${selectedProfile}`, newData);
+      }
     }
   }, [user, selectedProfile, incomeList, expenseList, recurringList, installmentList]);
+
+
+  useEffect(() => {
+    if (user && selectedProfile) {
+      const expensesRef = ref(database, `users/${user.uid}/profiles/${selectedProfile}/financialData/expenseList`);
+      onValue(expensesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const expensesArray = Array.isArray(data) ? data : Object.values(data);
+          setExpenseList(expensesArray);
+        }
+      });
+    }
+  }, [user, selectedProfile]);
+ 
 
   // Funções para adicionar receitas e despesas (mantidas)
   const addIncome = () => {
@@ -194,13 +348,16 @@ const FinancialApp = () => {
         id: Date.now(),
         amount: parseFloat(expense),
         description: expenseDescription || 'Despesa',
-        date: new Date(selectedYear, selectedMonth, new Date().getDate()),
+        date: new Date(selectedYear, selectedMonth, new Date().getDate()).toISOString(),
+        card: selectedCard || null,
       };
       setExpenseList([...expenseList, newExpense]);
       setExpense('');
       setExpenseDescription('');
+      setSelectedCard('');
     }
   };
+  
 
   const addRecurringExpense = () => {
     if (recurringExpense && !isNaN(recurringExpense) && parseFloat(recurringExpense) > 0) {
@@ -208,10 +365,12 @@ const FinancialApp = () => {
         id: Date.now(),
         amount: parseFloat(recurringExpense),
         description: recurringDescription || 'Despesa Recorrente',
+        card: selectedRecurringCard || null, // Adiciona o cartão selecionado
       };
       setRecurringList([...recurringList, newRecurring]);
       setRecurringExpense('');
       setRecurringDescription('');
+      setSelectedRecurringCard(''); // Limpa o cartão selecionado
     }
   };
 
@@ -303,6 +462,62 @@ const FinancialApp = () => {
     setNewRecurringAmount('');
     setNewRecurringDescription('');
   };
+  const CardDropdown = ({ cards, selectedCard, setSelectedCard, customColor = "gray" }) => {
+    const [isOpen, setIsOpen] = useState(false);
+  
+    // Função para garantir que o clique no dropdown funcione
+    const handleDropdownClick = (event) => {
+      event.stopPropagation(); // 🔥 Evita que cliques fora fechem o dropdown indevidamente
+    };
+  
+    return (
+      <div className="relative z-50">
+        <button
+          onClick={(event) => {
+            event.stopPropagation(); // 🔥 Evita que eventos indesejados interfiram
+            setIsOpen(!isOpen);
+          }}
+          className={`w-full bg-${customColor}-800 border border-${customColor}-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-${customColor}-400 flex items-center justify-between`}
+        >
+          {selectedCard && cards[selectedCard] ? (
+            <div className="flex items-center">
+              <img 
+                src={cards[selectedCard].logo} 
+                alt={cards[selectedCard].name} 
+                className="w-6 h-6 object-contain mr-2"
+              />
+              {cards[selectedCard].name}
+            </div>
+          ) : (
+            'Selecione o cartão'
+          )}
+          <span className="ml-2">▼</span>
+        </button>
+        {isOpen && (
+          <div className={`absolute z-50 w-full bg-${customColor}-900 border border-${customColor}-700 rounded-md mt-1 shadow-lg`} onClick={handleDropdownClick}>
+            {Object.entries(cards).map(([key, card]) => (
+              <div
+                key={key}
+                onClick={() => {
+                  setSelectedCard(key);
+                  setIsOpen(false);
+                }}
+                className="flex items-center px-4 py-2 text-white hover:bg-opacity-75 cursor-pointer"
+              >
+                <img 
+                  src={card.logo} 
+                  alt={card.name} 
+                  className="w-6 h-6 object-contain mr-2"
+                />
+                {card.name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+  
 
   // Funções para filtrar dados por mês (atualizadas para incluir compras parceladas)
   const filteredIncomeList = incomeList.filter(item => {
@@ -314,9 +529,11 @@ const FinancialApp = () => {
   });
 
   const filteredExpenseList = expenseList.filter(item => {
+    if (!item.date) return false;
     const itemDate = new Date(item.date);
-    return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
+    return itemDate.getMonth() === Number(selectedMonth) && itemDate.getFullYear() === Number(selectedYear);
   });
+  
 
   const filteredInstallmentList = installmentList.filter(item => {
     const itemDate = new Date(item.date);
@@ -695,6 +912,14 @@ const FinancialApp = () => {
                       className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400"
                     />
                   </div>
+                  <div className="flex-grow">
+                    <CardDropdown 
+                    cards={cards} 
+                    selectedCard={selectedCard} 
+                    setSelectedCard={handleSelectCard}
+                    customColor="red"
+                    />
+                  </div>
                   <button
                     onClick={addExpense}
                     className="bg-gradient-to-r from-red-400 to-pink-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/50"
@@ -702,6 +927,7 @@ const FinancialApp = () => {
                     Adicionar
                   </button>
                 </div>
+
 
                 <h2 className="text-xl font-semibold text-red-400 mb-4">Adicionar Compra Parcelada</h2>
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -752,20 +978,29 @@ const FinancialApp = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredExpenseList.map((item) => (
-                          <tr key={item.id} className="border-b border-gray-800">
-                            <td className="py-3 px-4">
-                              {editingExpenseId === item.id ? (
-                                <input
-                                  type="text"
-                                  value={newExpenseDescription}
-                                  onChange={(e) => setNewExpenseDescription(e.target.value)}
-                                  className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
-                                />
-                              ) : (
-                                item.description
-                              )}
-                            </td>
+                      {filteredExpenseList.map((item) => (
+                        <tr key={item.id} className="border-b border-gray-800">
+                          <td className="py-3 px-4">
+                            {editingExpenseId === item.id ? (
+                              <input
+                                type="text"
+                                value={newExpenseDescription}
+                                onChange={(e) => setNewExpenseDescription(e.target.value)}
+                                className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
+                              />
+                            ) : (
+                              <div className="flex items-center">
+                                {item.card && cards[item.card] && (
+                                  <img 
+                                    src={cards[item.card].logo} 
+                                    alt={cards[item.card].name} 
+                                    className="w-6 h-6 object-contain mr-2"
+                                  />
+                                )}
+                                {item.description}
+                              </div>
+                            )}
+                          </td>
                             <td className="py-3 px-4 text-right text-red-400 font-medium">
                               {editingExpenseId === item.id ? (
                                 <input
@@ -855,6 +1090,14 @@ const FinancialApp = () => {
                       className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
                   </div>
+                  <div className="flex-grow">
+                  <CardDropdown 
+                    cards={cards} 
+                    selectedCard={selectedRecurringCard} 
+                    setSelectedCard={handleSelectRecurringCard} 
+                    customColor="orange"
+                  />
+                  </div>
                   <button
                     onClick={addRecurringExpense}
                     className="bg-gradient-to-r from-orange-400 to-yellow-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/50"
@@ -875,9 +1118,17 @@ const FinancialApp = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {recurringList.map((item) => (
-                          <tr key={item.id} className="border-b border-gray-800">
-                            <td className="py-3 px-4">
+                      {recurringList.map((item) => (
+                        <tr key={item.id} className="border-b border-gray-800">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center">
+                              {item.card && cards[item.card] && (
+                                <img 
+                                  src={cards[item.card].logo} 
+                                  alt={cards[item.card].name} 
+                                  className="w-6 h-6 object-contain mr-2"
+                                />
+                              )}
                               {editingRecurringId === item.id ? (
                                 <input
                                   type="text"
@@ -888,44 +1139,45 @@ const FinancialApp = () => {
                               ) : (
                                 item.description
                               )}
-                            </td>
-                            <td className="py-3 px-4 text-right text-orange-400 font-medium">
-                              {editingRecurringId === item.id ? (
-                                <input
-                                  type="number"
-                                  value={newRecurringAmount}
-                                  onChange={(e) => setNewRecurringAmount(e.target.value)}
-                                  className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
-                                />
-                              ) : (
-                                formatCurrency(item.amount)
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              {editingRecurringId === item.id ? (
-                                <button
-                                  onClick={() => saveEditedRecurring(item.id)}
-                                  className="text-green-400 hover:text-green-300 mr-2"
-                                >
-                                  Salvar
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => startEditingRecurring(item.id, item.amount, item.description)}
-                                  className="text-blue-400 hover:text-blue-300 mr-2"
-                                >
-                                  Editar
-                                </button>
-                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right text-orange-400 font-medium">
+                            {editingRecurringId === item.id ? (
+                              <input
+                                type="number"
+                                value={newRecurringAmount}
+                                onChange={(e) => setNewRecurringAmount(e.target.value)}
+                                className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
+                              />
+                            ) : (
+                              formatCurrency(item.amount)
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {editingRecurringId === item.id ? (
                               <button
-                                onClick={() => removeRecurring(item.id)}
-                                className="text-red-400 hover:text-red-300"
+                                onClick={() => saveEditedRecurring(item.id)}
+                                className="text-green-400 hover:text-green-300 mr-2"
                               >
-                                Remover
+                                Salvar
                               </button>
-                            </td>
-                          </tr>
-                        ))}
+                            ) : (
+                              <button
+                                onClick={() => startEditingRecurring(item.id, item.amount, item.description)}
+                                className="text-blue-400 hover:text-blue-300 mr-2"
+                              >
+                                Editar
+                              </button>
+                            )}
+                            <button
+                              onClick={() => removeRecurring(item.id)}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              Remover
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                         <tr className="bg-gray-800/50">
                           <td className="py-3 px-4 font-medium">Total</td>
                           <td className="py-3 px-4 text-right text-orange-400 font-bold">
