@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
-import { auth, database, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, ref, set, onValue, push, onAuthStateChanged } from './firebase';
 
 const FinancialApp = () => {
-  // Estados para gerenciar login/cadastro
-  const [user, setUser] = useState(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLogin, setIsLogin] = useState(true);
+  // Estados para gerenciar perfis
+  const [profiles, setProfiles] = useState([]);
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [newProfileName, setNewProfileName] = useState('');
 
   // Estados para armazenar os dados financeiros
   const [income, setIncome] = useState('');
@@ -21,7 +19,7 @@ const FinancialApp = () => {
   const [recurringList, setRecurringList] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // Estados para edição
   const [editingIncomeId, setEditingIncomeId] = useState(null);
@@ -34,144 +32,70 @@ const FinancialApp = () => {
   const [newRecurringAmount, setNewRecurringAmount] = useState('');
   const [newRecurringDescription, setNewRecurringDescription] = useState('');
 
-  // Estados para perfis
-  const [profiles, setProfiles] = useState([]);
-  const [selectedProfile, setSelectedProfile] = useState(null);
-  const [newProfileName, setNewProfileName] = useState('');
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-
-  // Novos estados para compras parceladas
-  const [installmentExpense, setInstallmentExpense] = useState('');
-  const [installmentDescription, setInstallmentDescription] = useState('');
-  const [installmentMonths, setInstallmentMonths] = useState(1);
-  const [installmentList, setInstallmentList] = useState([]);
-
-  // Verificar o estado de autenticação ao carregar a aplicação
+  // Carregar perfis e dados do localStorage
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Usuário está autenticado
-        setUser(user);
-        loadProfiles(user.uid); // Carregar perfis do usuário
-      } else {
-        // Usuário não está autenticado
-        setUser(null);
-      }
-    });
-
-    // Limpar a inscrição ao desmontar o componente
-    return () => unsubscribe();
+    const savedProfiles = localStorage.getItem('profiles');
+    if (savedProfiles) {
+      setProfiles(JSON.parse(savedProfiles));
+    }
   }, []);
 
-  // Funções para login e cadastro (mantidas)
-  const handleSignUp = async () => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      setUser(user);
-
-      const userId = user.uid;
-      const newProfileRef = ref(database, `users/${userId}/profiles`);
-      const newProfile = {
-        name: 'Principal',
-        financialData: { incomeList: [], expenseList: [], recurringList: [], installmentList: [] }
-      };
-
-      const newProfileKey = push(newProfileRef).key;
-      await set(ref(database, `users/${userId}/profiles/${newProfileKey}`), newProfile);
-
-      setSelectedProfile(newProfileKey);
-      alert('Cadastro realizado com sucesso! Perfil padrão criado.');
-    } catch (error) {
-      alert('Erro ao cadastrar: ' + error.message);
-    }
-  };
-
-  const handleLogin = async () => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      setUser(userCredential.user);
-    } catch (error) {
-      alert('Erro ao fazer login: ' + error.message);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setUser(null);
-      setSelectedProfile(null);
-    } catch (error) {
-      alert('Erro ao fazer logout: ' + error.message);
-    }
-  };
-
-  // Função para carregar perfis do Firebase
-  const loadProfiles = async (userId) => {
-    const profilesRef = ref(database, `users/${userId}/profiles`);
-    onValue(profilesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setProfiles(Object.keys(data).map(key => ({ id: key, name: data[key].name })));
+  // Carregar dados do perfil atual
+  useEffect(() => {
+    if (currentProfile) {
+      const profileData = profiles.find(p => p.name === currentProfile);
+      if (profileData) {
+        setIncomeList(profileData.incomeList || []);
+        setExpenseList(profileData.expenseList || []);
+        setRecurringList(profileData.recurringList || []);
       }
-    });
-  };
+    }
+  }, [currentProfile, profiles]);
 
-  // Função para criar um novo perfil
-  const createProfile = async () => {
+  // Salvar perfis no localStorage quando atualizados
+  useEffect(() => {
+    if (currentProfile) {
+      const updatedProfiles = profiles.map(p => 
+        p.name === currentProfile 
+          ? { ...p, incomeList, expenseList, recurringList } 
+          : p
+      );
+      setProfiles(updatedProfiles);
+      localStorage.setItem('profiles', JSON.stringify(updatedProfiles));
+    }
+  }, [incomeList, expenseList, recurringList]);
+
+  // Funções para gerenciar perfis
+  const createProfile = () => {
     if (newProfileName.trim() === '') return;
 
-    const userId = user.uid;
-    const newProfileRef = ref(database, `users/${userId}/profiles`);
     const newProfile = {
       name: newProfileName,
-      financialData: { incomeList: [], expenseList: [], recurringList: [], installmentList: [] }
+      incomeList: [],
+      expenseList: [],
+      recurringList: []
     };
 
-    try {
-      const newProfileKey = push(newProfileRef).key;
-      await set(ref(database, `users/${userId}/profiles/${newProfileKey}`), newProfile);
-      setNewProfileName('');
-      setIsProfileDropdownOpen(false);
-      alert('Perfil criado com sucesso!');
-    } catch (error) {
-      alert('Erro ao criar perfil: ' + error.message);
-    }
+    setProfiles([...profiles, newProfile]);
+    setCurrentProfile(newProfileName);
+    setNewProfileName('');
   };
 
-  // Função para selecionar um perfil
-  const selectProfile = async (profileId) => {
-    const userId = user.uid;
-    const financialDataRef = ref(database, `users/${userId}/profiles/${profileId}/financialData`);
-    onValue(financialDataRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setIncomeList(data.incomeList || []);
-        setExpenseList(data.expenseList || []);
-        setRecurringList(data.recurringList || []);
-        setInstallmentList(data.installmentList || []);
-      }
-    });
-    setSelectedProfile(profileId);
-    setIsProfileDropdownOpen(false);
+  const switchProfile = (profileName) => {
+    setCurrentProfile(profileName);
   };
 
-  // Função para salvar dados financeiros no Firebase
-  const saveFinancialData = async (userId, profileId, data) => {
-    try {
-      await set(ref(database, `users/${userId}/profiles/${profileId}/financialData`), data);
-    } catch (error) {
-      alert('Erro ao salvar dados: ' + error.message);
+  const deleteProfile = (profileName) => {
+    const updatedProfiles = profiles.filter(p => p.name !== profileName);
+    setProfiles(updatedProfiles);
+    localStorage.setItem('profiles', JSON.stringify(updatedProfiles));
+    if (currentProfile === profileName) {
+      setCurrentProfile(null);
+      setIncomeList([]);
+      setExpenseList([]);
+      setRecurringList([]);
     }
   };
-
-  // Salvar dados financeiros quando houver alterações
-  useEffect(() => {
-    if (user && selectedProfile) {
-      const financialData = { incomeList, expenseList, recurringList, installmentList };
-      saveFinancialData(user.uid, selectedProfile, financialData);
-    }
-  }, [user, selectedProfile, incomeList, expenseList, recurringList, installmentList]);
 
   // Funções para adicionar receitas e despesas (mantidas)
   const addIncome = () => {
@@ -194,24 +118,27 @@ const FinancialApp = () => {
         id: Date.now(),
         amount: parseFloat(expense),
         description: expenseDescription || 'Despesa',
-        date: new Date(selectedYear, selectedMonth, new Date().getDate()),
+        date: new Date(selectedYear, selectedMonth, new Date().getDate())
       };
       setExpenseList([...expenseList, newExpense]);
       setExpense('');
       setExpenseDescription('');
+      setSelectedCard('');
     }
   };
+  
 
   const addRecurringExpense = () => {
     if (recurringExpense && !isNaN(recurringExpense) && parseFloat(recurringExpense) > 0) {
       const newRecurring = {
         id: Date.now(),
         amount: parseFloat(recurringExpense),
-        description: recurringDescription || 'Despesa Recorrente',
+        description: recurringDescription || 'Despesa Recorrente'
       };
       setRecurringList([...recurringList, newRecurring]);
       setRecurringExpense('');
       setRecurringDescription('');
+      setSelectedRecurringCard(''); // Limpa o cartão selecionado
     }
   };
 
@@ -240,7 +167,7 @@ const FinancialApp = () => {
     }
   };
 
-  // Funções para remover itens (mantidas)
+  // Funções para remover itens
   const removeIncome = (id) => {
     setIncomeList(incomeList.filter(item => item.id !== id));
   };
@@ -253,31 +180,15 @@ const FinancialApp = () => {
     setRecurringList(recurringList.filter(item => item.id !== id));
   };
 
-  // Nova função para remover despesas parceladas
-  const removeInstallment = (id) => {
-    setInstallmentList(installmentList.filter(item => item.id !== id));
-  };
-
-  // Funções para editar valores e descrições (mantidas)
-  const startEditingIncome = (id, amount, description) => {
-    setEditingIncomeId(id);
-    setNewIncomeAmount(amount);
-    setNewIncomeDescription(description);
-  };
-
-  const saveEditedIncome = (id) => {
-    setIncomeList(incomeList.map(item =>
-      item.id === id ? { ...item, amount: parseFloat(newIncomeAmount), description: newIncomeDescription } : item
-    ));
-    setEditingIncomeId(null);
-    setNewIncomeAmount('');
-    setNewIncomeDescription('');
-  };
-
-  const startEditingExpense = (id, amount, description) => {
+  // Funções para editar descrição
+  const startEditingExpense = (id, description) => {
     setEditingExpenseId(id);
-    setNewExpenseAmount(amount);
     setNewExpenseDescription(description);
+  };
+
+  const startEditingRecurring = (id, description) => {
+    setEditingRecurringId(id);
+    setNewRecurringDescription(description);
   };
 
   const saveEditedExpense = (id) => {
@@ -303,6 +214,62 @@ const FinancialApp = () => {
     setNewRecurringAmount('');
     setNewRecurringDescription('');
   };
+  const CardDropdown = ({ cards, selectedCard, setSelectedCard, customColor = "gray" }) => {
+    const [isOpen, setIsOpen] = useState(false);
+  
+    // Função para garantir que o clique no dropdown funcione
+    const handleDropdownClick = (event) => {
+      event.stopPropagation(); // 🔥 Evita que cliques fora fechem o dropdown indevidamente
+    };
+  
+    return (
+      <div className="relative z-50">
+        <button
+          onClick={(event) => {
+            event.stopPropagation(); // 🔥 Evita que eventos indesejados interfiram
+            setIsOpen(!isOpen);
+          }}
+          className={`w-full bg-${customColor}-800 border border-${customColor}-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-${customColor}-400 flex items-center justify-between`}
+        >
+          {selectedCard && cards[selectedCard] ? (
+            <div className="flex items-center">
+              <img 
+                src={cards[selectedCard].logo} 
+                alt={cards[selectedCard].name} 
+                className="w-6 h-6 object-contain mr-2"
+              />
+              {cards[selectedCard].name}
+            </div>
+          ) : (
+            'Selecione o cartão'
+          )}
+          <span className="ml-2">▼</span>
+        </button>
+        {isOpen && (
+          <div className={`absolute z-50 w-full bg-${customColor}-900 border border-${customColor}-700 rounded-md mt-1 shadow-lg`} onClick={handleDropdownClick}>
+            {Object.entries(cards).map(([key, card]) => (
+              <div
+                key={key}
+                onClick={() => {
+                  setSelectedCard(key);
+                  setIsOpen(false);
+                }}
+                className="flex items-center px-4 py-2 text-white hover:bg-opacity-75 cursor-pointer"
+              >
+                <img 
+                  src={card.logo} 
+                  alt={card.name} 
+                  className="w-6 h-6 object-contain mr-2"
+                />
+                {card.name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+  
 
   // Funções para filtrar dados por mês (atualizadas para incluir compras parceladas)
   const filteredIncomeList = incomeList.filter(item => {
@@ -314,16 +281,18 @@ const FinancialApp = () => {
   });
 
   const filteredExpenseList = expenseList.filter(item => {
+    if (!item.date) return false;
     const itemDate = new Date(item.date);
-    return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
+    return itemDate.getMonth() === Number(selectedMonth) && itemDate.getFullYear() === Number(selectedYear);
   });
+  
 
   const filteredInstallmentList = installmentList.filter(item => {
     const itemDate = new Date(item.date);
     return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
   });
 
-  // Cálculos para o resumo financeiro (atualizados para incluir compras parceladas)
+  // Cálculos para o resumo financeiro
   const totalIncome = filteredIncomeList.reduce((acc, item) => acc + item.amount, 0);
   const totalExpenses = filteredExpenseList.reduce((acc, item) => acc + item.amount, 0);
   const totalRecurring = recurringList.reduce((acc, item) => acc + item.amount, 0);
@@ -359,95 +328,53 @@ const FinancialApp = () => {
 
   return (
     <div className="min-h-screen bg-black text-gray-100 font-sans">
-      {!user ? (
-        // Tela de login/cadastro (mantida)
-        <div className="flex flex-col items-center justify-center h-screen">
-          <h2 className="text-2xl font-bold mb-4">{isLogin ? 'Login' : 'Cadastro'}</h2>
+      {/* Cabeçalho */}
+      <header className="px-6 py-4 border-b border-gray-800">
+        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
+          Controle Financeiro Neon
+        </h1>
+      </header>
+
+      {/* Gerenciamento de Perfis */}
+      <div className="px-6 py-4 border-b border-gray-800">
+        <div className="flex flex-col md:flex-row gap-4">
           <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 mb-4"
-          />
-          <input
-            type="password"
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 mb-4"
+            type="text"
+            placeholder="Novo perfil"
+            value={newProfileName}
+            onChange={(e) => setNewProfileName(e.target.value)}
+            className="bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           />
           <button
-            onClick={isLogin ? handleLogin : handleSignUp}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-md px-6 py-2 transition-colors mb-4"
+            onClick={createProfile}
+            className="bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-md px-6 py-2 transition-colors"
           >
-            {isLogin ? 'Entrar' : 'Cadastrar'}
-          </button>
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-cyan-400 hover:text-cyan-300"
-          >
-            {isLogin ? 'Criar uma conta' : 'Já tenho uma conta'}
+            Criar Perfil
           </button>
         </div>
-      ) : (
-        // Restante do aplicativo (atualizado para incluir compras parceladas)
-        <>
-          <header className="px-6 py-4 border-b border-gray-800">
-            <div className="flex items-center">
-              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
-                Controle Financeiro
-              </h1>
-              <div className="ml-auto flex items-center space-x-4">
-                {/* Dropdown de Perfis (mantido) */}
-                <div className="relative">
-                  <button
-                    onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                    className="bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50"
-                  >
-                    {selectedProfile ? `Perfil: ${profiles.find(p => p.id === selectedProfile)?.name}` : 'Selecionar Perfil'}
-                  </button>
-                  {isProfileDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-64 bg-gray-900 border border-gray-800 rounded-lg shadow-lg z-10">
-                      <div className="p-4">
-                        <input
-                          type="text"
-                          placeholder="Novo Perfil"
-                          value={newProfileName}
-                          onChange={(e) => setNewProfileName(e.target.value)}
-                          className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 mb-4"
-                        />
-                        <button
-                          onClick={createProfile}
-                          className="w-full bg-gradient-to-r from-green-400 to-teal-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/50"
-                        >
-                          Criar Perfil
-                        </button>
-                      </div>
-                      <div className="border-t border-gray-800">
-                        {profiles.map((profile) => (
-                          <button
-                            key={profile.id}
-                            onClick={() => selectProfile(profile.id)}
-                            className="w-full text-left px-4 py-2 text-gray-300 hover:bg-gray-800 transition-colors"
-                          >
-                            {profile.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {/* Botão de Logout (mantido) */}
-                <button
-                  onClick={handleLogout}
-                  className="bg-gradient-to-r from-red-400 to-pink-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/50"
-                >
-                  Logout
-                </button>
-              </div>
+        <div className="mt-4">
+          {profiles.map((profile) => (
+            <div key={profile.name} className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => switchProfile(profile.name)}
+                className={`px-4 py-2 rounded-md transition-all duration-300 ${
+                  currentProfile === profile.name
+                    ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/50'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                {profile.name}
+              </button>
+              <button
+                onClick={() => deleteProfile(profile.name)}
+                className="text-red-400 hover:text-red-300"
+              >
+                Remover
+              </button>
             </div>
-          </header>
+          ))}
+        </div>
+      </div>
 
           {/* Abas (mantidas) */}
           <div className="flex justify-center my-6">
@@ -673,284 +600,206 @@ const FinancialApp = () => {
               </div>
             )}
 
-            {activeTab === 'expenses' && (
-              <div className="bg-gray-900 rounded-xl p-6 border-2 border-red-400 shadow-lg shadow-red-500/20">
-                <h2 className="text-xl font-semibold text-red-400 mb-4">Adicionar Despesa</h2>
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                  <div className="flex-grow">
-                    <input
-                      type="number"
-                      placeholder="Valor"
-                      value={expense}
-                      onChange={(e) => setExpense(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400"
-                    />
-                  </div>
-                  <div className="flex-grow">
-                    <input
-                      type="text"
-                      placeholder="Descrição"
-                      value={expenseDescription}
-                      onChange={(e) => setExpenseDescription(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400"
-                    />
-                  </div>
-                  <button
-                    onClick={addExpense}
-                    className="bg-gradient-to-r from-red-400 to-pink-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/50"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-
-                <h2 className="text-xl font-semibold text-red-400 mb-4">Adicionar Compra Parcelada</h2>
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                  <div className="flex-grow">
-                    <input
-                      type="number"
-                      placeholder="Valor Total"
-                      value={installmentExpense}
-                      onChange={(e) => setInstallmentExpense(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400"
-                    />
-                  </div>
-                  <div className="flex-grow">
-                    <input
-                      type="text"
-                      placeholder="Descrição"
-                      value={installmentDescription}
-                      onChange={(e) => setInstallmentDescription(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400"
-                    />
-                  </div>
-                  <div className="flex-grow">
-                    <input
-                      type="number"
-                      placeholder="Número de Parcelas"
-                      value={installmentMonths}
-                      onChange={(e) => setInstallmentMonths(parseInt(e.target.value))}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400"
-                    />
-                  </div>
-                  <button
-                    onClick={addInstallmentExpense}
-                    className="bg-gradient-to-r from-red-400 to-pink-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/50"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-
-                <h3 className="text-lg font-medium text-gray-300 mt-8 mb-4">Despesas Registradas</h3>
-                {filteredExpenseList.length > 0 || filteredInstallmentList.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-800">
-                          <th className="text-left py-3 px-4 text-gray-400">Descrição</th>
-                          <th className="text-right py-3 px-4 text-gray-400">Valor</th>
-                          <th className="text-right py-3 px-4 text-gray-400">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredExpenseList.map((item) => (
-                          <tr key={item.id} className="border-b border-gray-800">
-                            <td className="py-3 px-4">
-                              {editingExpenseId === item.id ? (
-                                <input
-                                  type="text"
-                                  value={newExpenseDescription}
-                                  onChange={(e) => setNewExpenseDescription(e.target.value)}
-                                  className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
-                                />
-                              ) : (
-                                item.description
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right text-red-400 font-medium">
-                              {editingExpenseId === item.id ? (
-                                <input
-                                  type="number"
-                                  value={newExpenseAmount}
-                                  onChange={(e) => setNewExpenseAmount(e.target.value)}
-                                  className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
-                                />
-                              ) : (
-                                formatCurrency(item.amount)
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              {editingExpenseId === item.id ? (
-                                <button
-                                  onClick={() => saveEditedExpense(item.id)}
-                                  className="text-green-400 hover:text-green-300 mr-2"
-                                >
-                                  Salvar
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => startEditingExpense(item.id, item.amount, item.description)}
-                                  className="text-blue-400 hover:text-blue-300 mr-2"
-                                >
-                                  Editar
-                                </button>
-                              )}
-                              <button
-                                onClick={() => removeExpense(item.id)}
-                                className="text-red-400 hover:text-red-300"
-                              >
-                                Remover
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                        {filteredInstallmentList.map((item) => (
-                          <tr key={item.id} className="border-b border-gray-800">
-                            <td className="py-3 px-4">{item.description}</td>
-                            <td className="py-3 px-4 text-right text-red-400 font-medium">{formatCurrency(item.amount)}</td>
-                            <td className="py-3 px-4 text-right">
-                              <button
-                                onClick={() => removeInstallment(item.id)}
-                                className="text-red-400 hover:text-red-300"
-                              >
-                                Remover
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="bg-gray-800/50">
-                          <td className="py-3 px-4 font-medium">Total</td>
-                          <td className="py-3 px-4 text-right text-red-400 font-bold">
-                            {formatCurrency(totalExpenses + totalInstallments)}
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-gray-500 italic">Nenhuma despesa registrada para este mês.</p>
-                )}
+        {activeTab === 'expenses' && (
+          <div className="bg-gray-900 rounded-xl p-6 border-2 border-red-400 shadow-lg shadow-red-500/20">
+            <h2 className="text-xl font-semibold text-red-400 mb-4">Adicionar Despesa</h2>
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="flex-grow">
+                <input
+                  type="number"
+                  placeholder="Valor"
+                  value={expense}
+                  onChange={(e) => setExpense(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
               </div>
-            )}
-
-            {activeTab === 'recurring' && (
-              <div className="bg-gray-900 rounded-xl p-6 border-2 border-orange-400 shadow-lg shadow-orange-500/20">
-                <h2 className="text-xl font-semibold text-orange-400 mb-4">Adicionar Despesa Recorrente</h2>
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                  <div className="flex-grow">
-                    <input
-                      type="number"
-                      placeholder="Valor"
-                      value={recurringExpense}
-                      onChange={(e) => setRecurringExpense(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                    />
-                  </div>
-                  <div className="flex-grow">
-                    <input
-                      type="text"
-                      placeholder="Descrição"
-                      value={recurringDescription}
-                      onChange={(e) => setRecurringDescription(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                    />
-                  </div>
-                  <button
-                    onClick={addRecurringExpense}
-                    className="bg-gradient-to-r from-orange-400 to-yellow-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/50"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-
-                <h3 className="text-lg font-medium text-gray-300 mt-8 mb-4">Despesas Recorrentes</h3>
-                {recurringList.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-800">
-                          <th className="text-left py-3 px-4 text-gray-400">Descrição</th>
-                          <th className="text-right py-3 px-4 text-gray-400">Valor</th>
-                          <th className="text-right py-3 px-4 text-gray-400">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recurringList.map((item) => (
-                          <tr key={item.id} className="border-b border-gray-800">
-                            <td className="py-3 px-4">
-                              {editingRecurringId === item.id ? (
-                                <input
-                                  type="text"
-                                  value={newRecurringDescription}
-                                  onChange={(e) => setNewRecurringDescription(e.target.value)}
-                                  className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
-                                />
-                              ) : (
-                                item.description
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right text-orange-400 font-medium">
-                              {editingRecurringId === item.id ? (
-                                <input
-                                  type="number"
-                                  value={newRecurringAmount}
-                                  onChange={(e) => setNewRecurringAmount(e.target.value)}
-                                  className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
-                                />
-                              ) : (
-                                formatCurrency(item.amount)
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              {editingRecurringId === item.id ? (
-                                <button
-                                  onClick={() => saveEditedRecurring(item.id)}
-                                  className="text-green-400 hover:text-green-300 mr-2"
-                                >
-                                  Salvar
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => startEditingRecurring(item.id, item.amount, item.description)}
-                                  className="text-blue-400 hover:text-blue-300 mr-2"
-                                >
-                                  Editar
-                                </button>
-                              )}
-                              <button
-                                onClick={() => removeRecurring(item.id)}
-                                className="text-red-400 hover:text-red-300"
-                              >
-                                Remover
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="bg-gray-800/50">
-                          <td className="py-3 px-4 font-medium">Total</td>
-                          <td className="py-3 px-4 text-right text-orange-400 font-bold">
-                            {formatCurrency(totalRecurring)}
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-gray-500 italic">Nenhuma despesa recorrente registrada.</p>
-                )}
+              <div className="flex-grow">
+                <input
+                  type="text"
+                  placeholder="Descrição"
+                  value={expenseDescription}
+                  onChange={(e) => setExpenseDescription(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
               </div>
+              <button
+                onClick={addExpense}
+                className="bg-gradient-to-r from-red-400 to-pink-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/50"
+              >
+                Adicionar
+              </button>
+            </div>
+
+            <h3 className="text-lg font-medium text-gray-300 mt-8 mb-4">Despesas Registradas</h3>
+            {filteredExpenseList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-800">
+                      <th className="text-left py-3 px-4 text-gray-400">Descrição</th>
+                      <th className="text-right py-3 px-4 text-gray-400">Valor</th>
+                      <th className="text-right py-3 px-4 text-gray-400">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredExpenseList.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-800">
+                        <td className="py-3 px-4">
+                          {editingExpenseId === item.id ? (
+                            <input
+                              type="text"
+                              value={newExpenseDescription}
+                              onChange={(e) => setNewExpenseDescription(e.target.value)}
+                              className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
+                            />
+                          ) : (
+                            item.description
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right text-red-400 font-medium">
+                          {formatCurrency(item.amount)}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {editingExpenseId === item.id ? (
+                            <button
+                              onClick={() => saveEditedExpense(item.id)}
+                              className="text-green-400 hover:text-green-300 mr-2"
+                            >
+                              Salvar
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => startEditingExpense(item.id, item.description)}
+                              className="text-blue-400 hover:text-blue-300 mr-2"
+                            >
+                              Editar
+                            </button>
+                          )}
+                          <button
+                            onClick={() => removeExpense(item.id)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            Remover
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-800/50">
+                      <td className="py-3 px-4 font-medium">Total</td>
+                      <td className="py-3 px-4 text-right text-red-400 font-bold">
+                        {formatCurrency(totalExpenses)}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">Nenhuma despesa registrada para este mês.</p>
             )}
           </div>
+        )}
 
-          {/* Rodapé (mantido) */}
-          <footer className="text-center py-6 bg-gray-900 border-t border-gray-800">
-            <p className="text-lg font-poppins font-semibold animate-gradient bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-pulse">
-              By Wellington Beraldo
-            </p>
-          </footer>
-        </>
-      )}
+        {activeTab === 'recurring' && (
+          <div className="bg-gray-900 rounded-xl p-6 border-2 border-orange-400 shadow-lg shadow-orange-500/20">
+            <h2 className="text-xl font-semibold text-orange-400 mb-4">Adicionar Despesa Recorrente</h2>
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="flex-grow">
+                <input
+                  type="number"
+                  placeholder="Valor"
+                  value={recurringExpense}
+                  onChange={(e) => setRecurringExpense(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+              </div>
+              <div className="flex-grow">
+                <input
+                  type="text"
+                  placeholder="Descrição"
+                  value={recurringDescription}
+                  onChange={(e) => setRecurringDescription(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+              </div>
+              <button
+                onClick={addRecurringExpense}
+                className="bg-gradient-to-r from-orange-400 to-yellow-500 text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/50"
+              >
+                Adicionar
+              </button>
+            </div>
+
+            <h3 className="text-lg font-medium text-gray-300 mt-8 mb-4">Despesas Recorrentes</h3>
+            {recurringList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-800">
+                      <th className="text-left py-3 px-4 text-gray-400">Descrição</th>
+                      <th className="text-right py-3 px-4 text-gray-400">Valor</th>
+                      <th className="text-right py-3 px-4 text-gray-400">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recurringList.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-800">
+                        <td className="py-3 px-4">
+                          {editingRecurringId === item.id ? (
+                            <input
+                              type="text"
+                              value={newRecurringDescription}
+                              onChange={(e) => setNewRecurringDescription(e.target.value)}
+                              className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-white"
+                            />
+                          ) : (
+                            item.description
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right text-orange-400 font-medium">
+                          {formatCurrency(item.amount)}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {editingRecurringId === item.id ? (
+                            <button
+                              onClick={() => saveEditedRecurring(item.id)}
+                              className="text-green-400 hover:text-green-300 mr-2"
+                            >
+                              Salvar
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => startEditingRecurring(item.id, item.description)}
+                              className="text-blue-400 hover:text-blue-300 mr-2"
+                            >
+                              Editar
+                            </button>
+                          )}
+                          <button
+                            onClick={() => removeRecurring(item.id)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            Remover
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-800/50">
+                      <td className="py-3 px-4 font-medium">Total</td>
+                      <td className="py-3 px-4 text-right text-orange-400 font-bold">
+                        {formatCurrency(totalRecurring)}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">Nenhuma despesa recorrente registrada.</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
