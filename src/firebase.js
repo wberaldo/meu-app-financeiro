@@ -1,7 +1,6 @@
 // --- START OF FILE firebase.js ---
 
 import { initializeApp } from 'firebase/app';
-<<<<<<< HEAD
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -18,14 +17,6 @@ import {
   get,
   off // Import 'off' for cleaning up listeners
 } from 'firebase/database';
-=======
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-<<<<<<< HEAD
-import { getDatabase, ref, set, onValue, push } from 'firebase/database';
-=======
-import { getDatabase, ref, set, update, onValue, push, get } from 'firebase/database';
->>>>>>> aaee7b66a7a2b849b7bc04b14af16422a1c073b5
->>>>>>> 532ee1f510844b7b67eb05e3b35ce17d874c202c
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -42,7 +33,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
 
-<<<<<<< HEAD
 // --- Authentication Functions ---
 
 const signUp = (email, password) => {
@@ -171,10 +161,3 @@ export {
   listenToFinancialData,
 };
 // --- END OF FILE firebase.js ---
-=======
-<<<<<<< HEAD
-export { auth, database, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, ref, set, onValue, push };
-=======
-export { auth, database, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, ref, set, update,onValue, push, get };
->>>>>>> aaee7b66a7a2b849b7bc04b14af16422a1c073b5
->>>>>>> 532ee1f510844b7b67eb05e3b35ce17d874c202c
