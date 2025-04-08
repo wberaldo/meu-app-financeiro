@@ -443,7 +443,28 @@ const DashboardView = ({ totals, balance, formatCurrency }) => {
 
 
 // ** TransactionTable Component ** (Helper for TransactionSection)
-const TransactionTable = ({ items, onRemove, onEditStart, onEditSave, onEditCancel, editingId, editForm, setEditForm, formatCurrency, itemTypeColor = 'gray-300', allowEdit = true, showCard = false, cards = {} }) => {
+// --- Dentro do componente TransactionTable ---
+
+const TransactionTable = ({
+    items,
+    onRemove,
+    onEditStart,
+    onEditSave,
+    onEditCancel,
+    editingId,
+    editForm,
+    setEditForm,
+    formatCurrency,
+    itemTypeColor = 'gray-300',
+    allowEdit = true, // Certifique-se que está sendo passado como true de TransactionSection
+    showCard = false,
+    cards = {},
+    showPaymentMethod = false
+}) => {
+
+    // *** DEBUG: Verifique os dados recebidos ***
+    // console.log("Items in TransactionTable:", items); // Descomente para ver se os items têm 'amount'
+
     return (
         <div className="overflow-x-auto mt-8">
             <table className="w-full">
@@ -451,96 +472,132 @@ const TransactionTable = ({ items, onRemove, onEditStart, onEditSave, onEditCanc
                     <tr className="border-b border-gray-800">
                         <th className="text-left py-3 px-4 text-gray-400 font-medium">Descrição</th>
                         <th className="text-right py-3 px-4 text-gray-400 font-medium">Valor</th>
+                        {/* A coluna Ações só aparece se allowEdit for true */}
                         {allowEdit && <th className="text-right py-3 px-4 text-gray-400 font-medium">Ações</th>}
                     </tr>
                 </thead>
                 <tbody>
-                    {items.map((item) => (
-                        <tr key={item.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-                            <td className="py-3 px-4">
-                                {editingId === item.id ? (
-                                    <input
-                                        type="text"
-                                        value={editForm.description}
-                                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                        className="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white w-full"
-                                    />
-                                ) : (
-                                    <div className="flex items-center">
-                                        {showCard && item.card && cards[item.card] && (
-                                            <img
-                                                src={cards[item.card].logo}
-                                                alt={cards[item.card].name}
-                                                className="w-5 h-5 object-contain mr-2 flex-shrink-0" // Use flex-shrink-0
-                                                title={cards[item.card].name} // Tooltip for card name
-                                            />
-                                        )}
-                                        <span className="truncate">{item.description}</span> {/* Add truncate */}
-                                    </div>
-                                )}
-                            </td>
-                            <td className={`py-3 px-4 text-right font-medium text-${itemTypeColor}`}>
-                                {editingId === item.id ? (
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={editForm.amount}
-                                        onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
-                                        className="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white w-24 text-right"
-                                    />
-                                ) : (
-                                    formatCurrency(item.amount)
-                                )}
-                            </td>
-                            {allowEdit && (
-                                <td className="py-3 px-4 text-right whitespace-nowrap"> {/* Prevent wrap */}
+                    {items.map((item) => {
+                         // *** DEBUG: Verifique cada item ***
+                         // console.log("Rendering item:", item); // Descomente para ver cada item sendo renderizado
+
+                         return ( // Certifique-se que este return existe!
+                            <tr key={item.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+
+                                {/* CÉLULA 1: Descrição, Indicador C/D, Cartão */}
+                                <td className="py-3 px-4">
                                     {editingId === item.id ? (
-                                        <>
-                                            <button
-                                                onClick={() => onEditSave(item.id)}
-                                                className="text-green-400 hover:text-green-300 mr-2 text-sm"
-                                                title="Salvar"
-                                            >
-                                                Salvar
-                                            </button>
-                                            <button
-                                                onClick={onEditCancel}
-                                                className="text-gray-400 hover:text-gray-300 text-sm"
-                                                title="Cancelar"
-                                            >
-                                                Cancelar
-                                            </button>
-                                        </>
+                                        // Modo Edição Descrição
+                                        <input
+                                            type="text"
+                                            value={editForm.description}
+                                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                            className="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white w-full"
+                                        />
                                     ) : (
-                                        <>
-                                            <button
-                                                onClick={() => onEditStart(item)}
-                                                className="text-blue-400 hover:text-blue-300 mr-2 text-sm"
-                                                title="Editar"
-                                            >
-                                                Editar
-                                            </button>
-                                            <button
-                                                onClick={() => onRemove(item.id)}
-                                                className="text-red-400 hover:text-red-300 text-sm"
-                                                title="Remover"
-                                            >
-                                                Remover
-                                            </button>
-                                        </>
+                                        // Modo Visualização Descrição
+                                        <div className="flex items-center space-x-2">
+                                            {/* Indicador Crédito/Débito */}
+                                            {showPaymentMethod && item.paymentMethod && (
+                                                <span
+                                                  className={`flex-shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded ${ // Adicionado flex-shrink-0
+                                                    item.paymentMethod === 'credit' ? 'bg-blue-600 text-blue-100' : 'bg-yellow-600 text-yellow-100'
+                                                  }`}
+                                                  title={item.paymentMethod === 'credit' ? 'Crédito' : 'Débito'}
+                                                >
+                                                  {item.paymentMethod === 'credit' ? 'C' : 'D'}
+                                                </span>
+                                            )}
+                                            {/* Logo do Cartão */}
+                                            {showCard && item.card && cards[item.card] && (
+                                                <img
+                                                    src={cards[item.card].logo}
+                                                    alt={cards[item.card].name}
+                                                    className="w-5 h-5 object-contain flex-shrink-0"
+                                                    title={cards[item.card].name}
+                                                />
+                                            )}
+                                            {/* Descrição Textual */}
+                                            <span className="truncate">{item.description}</span>
+                                        </div> // Fechamento do div flex
                                     )}
-                                </td>
-                            )}
+                                </td> {/* Fechamento da Célula 1 */}
+
+                                {/* CÉLULA 2: Valor */}
+                                <td className={`py-3 px-4 text-right font-medium text-${itemTypeColor}`}>
+                                    {editingId === item.id ? (
+                                        // Modo Edição Valor
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={editForm.amount}
+                                            onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                                            className="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white w-24 text-right"
+                                        />
+                                    ) : (
+                                        // Modo Visualização Valor - Certifique-se que item.amount existe
+                                        formatCurrency(item.amount)
+                                    )}
+                                </td> {/* Fechamento da Célula 2 */}
+
+                                {/* CÉLULA 3: Ações (Condicional) */}
+                                {allowEdit && ( // Renderiza esta célula SOMENTE se allowEdit for true
+                                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                                        {editingId === item.id ? (
+                                            // Modo Edição Ações
+                                            <>
+                                                <button
+                                                    onClick={() => onEditSave(item.id)}
+                                                    className="text-green-400 hover:text-green-300 mr-2 text-sm"
+                                                    title="Salvar"
+                                                >
+                                                    Salvar
+                                                </button>
+                                                <button
+                                                    onClick={onEditCancel}
+                                                    className="text-gray-400 hover:text-gray-300 text-sm"
+                                                    title="Cancelar"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </>
+                                        ) : (
+                                            // Modo Visualização Ações
+                                            <>
+                                                <button
+                                                    onClick={() => onEditStart(item)}
+                                                    className="text-blue-400 hover:text-blue-300 mr-2 text-sm"
+                                                    title="Editar"
+                                                >
+                                                    Editar
+                                                </button>
+                                                <button
+                                                    onClick={() => onRemove(item.id)}
+                                                    className="text-red-400 hover:text-red-300 text-sm"
+                                                    title="Remover"
+                                                >
+                                                    Remover
+                                                </button>
+                                            </>
+                                        )}
+                                    </td> // Fechamento da Célula 3
+                                )} {/* Fechamento da condição allowEdit */}
+
+                            </tr> // Fechamento da linha <tr>
+                         ); // Fechamento do return dentro do map
+                    })} {/* Fechamento do map */}
+
+                    {/* Linha Total */}
+                    {items.length > 0 && ( // Só mostra total se houver itens
+                        <tr className="bg-gray-800/50">
+                            <td className="py-3 px-4 font-semibold">Total</td>
+                            <td className={`py-3 px-4 text-right font-bold text-${itemTypeColor}`}>
+                                {formatCurrency(items.reduce((acc, item) => acc + (item.amount || 0), 0))} {/* Garante que amount existe */}
+                            </td>
+                            {/* Célula vazia para alinhar com coluna Ações */}
+                            {allowEdit && <td></td>}
                         </tr>
-                    ))}
-                    {/* Total Row */}
-                    <tr className="bg-gray-800/50">
-                        <td className="py-3 px-4 font-semibold">Total</td>
-                        <td className={`py-3 px-4 text-right font-bold text-${itemTypeColor}`}>
-                            {formatCurrency(items.reduce((acc, item) => acc + item.amount, 0))}
-                        </td>
-                        {allowEdit && <td></td>}
-                    </tr>
+                    )}
                 </tbody>
             </table>
         </div>
@@ -551,27 +608,30 @@ const TransactionTable = ({ items, onRemove, onEditStart, onEditSave, onEditCanc
 // ** TransactionSection Component ** (Generic for Income, Expenses, Recurring)
 const TransactionSection = ({
     title,
-    items, // The list of items (e.g., incomeList, expenseList)
+    items,
     onAddItem,
     onRemoveItem,
-    onUpdateItem, // Use a single update function
-    itemTypeColor, // e.g., 'green-400'
-    baseColor, // e.g., 'green' for styling inputs/borders
-    showCardOption = false, // Whether to show card dropdown
-    cards = {}, // Pass cards object if showCardOption is true
-    isRecurring = false, // Special flag for recurring (no date filter)
+    onUpdateItem,
+    itemTypeColor,
+    baseColor,
+    showCardOption = false,
+    cards = {},
+    isRecurring = false,
     formatCurrency,
-    selectedMonth, // Needed for filtering non-recurring
-    selectedYear, // Needed for filtering non-recurring
+    selectedMonth,
+    selectedYear,
 }) => {
     // State for the 'Add' form
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [selectedCard, setSelectedCard] = useState(''); // For adding
+    const [selectedCard, setSelectedCard] = useState('');
+    // *** NOVO ESTADO para método de pagamento (default: crédito) ***
+    const [paymentMethod, setPaymentMethod] = useState('credit');
 
     // State for editing
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({ amount: '', description: '' });
+    // Não vamos adicionar edição de paymentMethod por enquanto para simplificar
 
     const handleAdd = () => {
         const parsedAmount = parseFloat(amount);
@@ -579,9 +639,9 @@ const TransactionSection = ({
             const newItemData = {
                 amount: parsedAmount,
                 description: description.trim(),
-                card: showCardOption ? (selectedCard || null) : undefined, // Only add card if option is shown
-                // Recurring items don't need a date tied to the selected month/year filter
-                // Other items should be associated with the current view or a fixed date within it
+                card: showCardOption ? (selectedCard || null) : undefined,
+                // *** INCLUIR paymentMethod ***
+                paymentMethod: (baseColor === 'red' || baseColor === 'orange') ? paymentMethod : undefined, // Apenas para despesas e recorrentes
                 date: isRecurring ? new Date().toISOString() : new Date(selectedYear, selectedMonth, new Date().getDate()).toISOString(),
             };
             onAddItem(newItemData);
@@ -589,8 +649,9 @@ const TransactionSection = ({
             setAmount('');
             setDescription('');
             setSelectedCard('');
+            setPaymentMethod('credit'); // Reset para o default
         } else {
-            alert('Por favor, insira uma descrição e um valor válido.'); // Simple validation feedback
+            alert('Por favor, insira uma descrição e um valor válido.');
         }
     };
 
@@ -649,12 +710,48 @@ const TransactionSection = ({
     };
     const currentButtonGradient = buttonGradientClasses[baseColor] || 'from-gray-400 to-gray-600'; // Default gradient
 
+    // *** NOVAS CLASSES para botões de seleção Crédito/Débito ***
+    const getPaymentMethodButtonClasses = (method) => {
+        const isActive = paymentMethod === method;
+
+        // Definir estilos para cada tema (ativo e inativo)
+        const styles = {
+            // Estilos para Despesas (red)
+            red: {
+                active: 'bg-gradient-to-r from-red-400 to-pink-500 shadow-red-500/50 text-white shadow-md',
+                inactive: 'bg-gray-800 text-gray-400 hover:bg-gray-700' // Fundo vermelho escuro/transparente, texto vermelho claro
+            },
+            // Estilos para Recorrentes (orange)
+            orange: {
+                active: 'bg-gradient-to-r from-orange-400 to-yellow-500 shadow-orange-500/50 text-white shadow-md',
+                inactive: 'bg-gray-800 text-gray-400 hover:bg-gray-700' // Fundo laranja escuro/transparente, texto laranja claro
+            },
+            // Estilos padrão (caso baseColor não seja esperado)
+            default: {
+                active: 'bg-gray-700 text-white shadow-md',
+                inactive: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }
+        };
+
+        // Seleciona o conjunto de estilos correto com base no baseColor
+        const themeStyles = styles[baseColor] || styles.default;
+
+        // Seleciona o estilo ativo ou inativo dentro do tema
+        const specificStyle = isActive ? themeStyles.active : themeStyles.inactive;
+
+        // Retorna as classes base + o estilo específico do estado/tema
+        return `px-4 py-2 text-sm font-medium transition-all duration-300 focus:outline-none ${specificStyle}`;
+    };
+    // *** FIM DA SUBSTITUIÇÃO DA FUNÇÃO ***
+    
+
     return (
         <div className={`bg-gray-900 rounded-xl p-6 border-2 border-${baseColor}-400 shadow-lg shadow-${baseColor}-500/20 mb-8`}>
             <h2 className={`text-xl font-semibold text-${baseColor}-400 mb-4`}>{title}</h2>
 
             {/* Add Form */}
-            <div className="flex flex-col md:flex-row gap-4 mb-6 items-end"> {/* items-end helps align button */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 items-end"> {/* Layout em grid */}
+                {/* Valor */}
                 <div className="flex-grow">
                     <label htmlFor={`${baseColor}-amount`} className="text-xs text-gray-400 mb-1 block">Valor</label>
                     <input
@@ -667,7 +764,9 @@ const TransactionSection = ({
                         className={`w-full bg-gray-800 ${currentFormColors.border} rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${currentFormColors.ring}`}
                     />
                 </div>
-                <div className="flex-grow-[2]"> {/* Make description wider */}
+
+                {/* Descrição */}
+                <div className="flex-grow md:col-span-2 lg:col-span-1"> {/* Ocupa mais espaço em telas médias */}
                      <label htmlFor={`${baseColor}-description`} className="text-xs text-gray-400 mb-1 block">Descrição</label>
                     <input
                         id={`${baseColor}-description`}
@@ -678,6 +777,31 @@ const TransactionSection = ({
                         className={`w-full bg-gray-800 ${currentFormColors.border} rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${currentFormColors.ring}`}
                     />
                 </div>
+
+                {/* Seleção Crédito/Débito (Apenas para Despesas e Recorrentes) */}
+                {(baseColor === 'red' || baseColor === 'orange') && (
+                    <div className="flex-grow">
+                         <label className="text-xs text-gray-400 mb-1 block">Tipo</label>
+                         <div className="flex rounded-md overflow-hidden border border-gray-700">
+                             <button
+                                type="button"
+                                onClick={() => setPaymentMethod('credit')}
+                                className={`${getPaymentMethodButtonClasses('credit')} rounded-l-md flex-1 text-center`}
+                             >
+                                 Crédito
+                             </button>
+                             <button
+                                type="button"
+                                onClick={() => setPaymentMethod('debit')}
+                                className={`${getPaymentMethodButtonClasses('debit')} rounded-r-md flex-1 text-center`}
+                             >
+                                 Débito
+                             </button>
+                         </div>
+                    </div>
+                )}
+
+                {/* Dropdown de Cartão (Opcional e apenas se showCardOption for true) */}
                 {showCardOption && (
                     <div className="flex-grow">
                         <label htmlFor={`${baseColor}-card`} className="text-xs text-gray-400 mb-1 block">Cartão (Opcional)</label>
@@ -685,38 +809,40 @@ const TransactionSection = ({
                             cards={cards}
                             selectedCard={selectedCard}
                             onSelectCard={setSelectedCard}
-                            baseColor={baseColor} // Pass base color for styling
+                            baseColor={baseColor}
                         />
                     </div>
                 )}
+
+                 {/* Botão Adicionar (agora ocupa uma coluna no grid em telas maiores) */}
                 <button
                     onClick={handleAdd}
-                    className={`bg-gradient-to-r ${currentButtonGradient} text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg self-end`} // self-end for vertical alignment
+                    className={`lg:col-start-4 bg-gradient-to-r ${currentButtonGradient} text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg self-end h-[42px]`} // Altura fixa para alinhar
                 >
                     Adicionar
                 </button>
             </div>
 
-             {/* Section for Installments (only in Expenses) */}
+             {/* Seção de Parcelamento (Apenas em Despesas) */}
              {baseColor === 'red' && (
                 <InstallmentSection
-                    onAddInstallment={onAddItem} // Reuse the add item logic but handle installment specifics
+                    onAddInstallment={onAddItem}
                     baseColor={baseColor}
                     selectedMonth={selectedMonth}
                     selectedYear={selectedYear}
+                    // Passar o paymentMethod? Geralmente é crédito, mas podemos adicionar a opção
                 />
              )}
 
-
             {/* Items List */}
-            <h3 className="text-lg font-medium text-gray-300 mt-8 mb-4">
+             <h3 className="text-lg font-medium text-gray-300 mt-8 mb-4">
                 {isRecurring ? "Itens Registrados" : `Registros de ${MONTH_NAMES[selectedMonth]}/${selectedYear}`}
             </h3>
             {filteredItems.length > 0 ? (
                  <TransactionTable
                     items={filteredItems}
                     onRemove={onRemoveItem}
-                    onEditStart={handleEditStart}
+                    onEditStart={handleEditStart} // Editar não mexe em paymentMethod por ora
                     onEditSave={handleEditSave}
                     onEditCancel={handleEditCancel}
                     editingId={editingId}
@@ -724,26 +850,29 @@ const TransactionSection = ({
                     setEditForm={setEditForm}
                     formatCurrency={formatCurrency}
                     itemTypeColor={itemTypeColor}
-                    allowEdit={true} // All sections allow editing for now
-                    showCard={showCardOption} // Show card logo in table if applicable
-                    cards={cards} // Pass cards for logo lookup
+                    allowEdit={true}
+                    showCard={showCardOption}
+                    cards={cards}
+                    // *** PASSAR showPaymentMethod (novo prop) ***
+                    showPaymentMethod={baseColor === 'red' || baseColor === 'orange'} // Mostra tipo só para despesas/recorrentes
                 />
             ) : (
-                <p className="text-gray-500 italic">Nenhum item registrado {isRecurring ? '' : `para ${MONTH_NAMES[selectedMonth]}/${selectedYear}`}.</p>
+                 <p className="text-gray-500 italic">Nenhum item registrado {isRecurring ? '' : `para ${MONTH_NAMES[selectedMonth]}/${selectedYear}`}.</p>
             )}
 
-            {/* Display installment list separately within expenses */}
+            {/* Lista de Parcelas (Apenas em Despesas) */}
             {baseColor === 'red' && !isRecurring && (
                  <InstallmentList
-                    installments={items.filter(item => item.isInstallment)} // Assuming an isInstallment flag
+                    installments={items.filter(item => item.isInstallment)} // Já filtrado por mês/ano dentro do comp.
                     selectedMonth={selectedMonth}
                     selectedYear={selectedYear}
                     formatCurrency={formatCurrency}
-                    onRemoveInstallment={onRemoveItem} // Reuse remove logic
-                    itemTypeColor={itemTypeColor} // red-400
+                    onRemoveInstallment={onRemoveItem}
+                    itemTypeColor={itemTypeColor}
+                    // *** PASSAR showPaymentMethod para lista de parcelas também ***
+                    showPaymentMethod={true} // Parcelas também mostram (geralmente crédito)
                  />
             )}
-
         </div>
     );
 };
@@ -752,7 +881,8 @@ const TransactionSection = ({
 const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, selectedYear }) => {
     const [totalAmount, setTotalAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [months, setMonths] = useState(2); // Default to 2 installments
+    const [months, setMonths] = useState(2);
+
 
     const handleAddInstallment = () => {
         const parsedTotalAmount = parseFloat(totalAmount);
@@ -760,19 +890,24 @@ const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, select
 
         if (description.trim() && !isNaN(parsedTotalAmount) && parsedTotalAmount > 0 && numMonths > 1) {
             const installmentAmount = parsedTotalAmount / numMonths;
+            const baseDate = new Date(selectedYear, selectedMonth, new Date().getDate()); // Usar data atual como referência dia
 
-            // Create multiple items, one for each month
             for (let i = 0; i < numMonths; i++) {
-                const date = new Date(selectedYear, selectedMonth + i, new Date().getDate()); // Distribute across months
+                // *** DEFINIR 'date' AQUI ***
+                const date = new Date(baseDate); // Cria uma cópia da data base
+                date.setMonth(baseDate.getMonth() + i); // Adiciona o offset de meses
+                // *** FIM DA DEFINIÇÃO DE 'date' ***
+
                 const installmentData = {
                     amount: installmentAmount,
                     description: `${description.trim()} (${i + 1}/${numMonths})`,
                     date: date.toISOString(),
-                    isInstallment: true, // Flag to identify installment parts
+                    isInstallment: true,
+                    paymentMethod: 'credit', // Sempre será crédito
                     totalMonths: numMonths,
                     currentMonthIndex: i,
-                    originalPurchaseDate: new Date(selectedYear, selectedMonth, new Date().getDate()).toISOString(), // Keep track of original purchase month/year
-                    groupId: Date.now() // Simple way to group installments from the same purchase
+                    originalPurchaseDate: baseDate.toISOString(), // Usar a data base original
+                    groupId: Date.now() + Math.random() * 1000 // Melhorar ID se possível
                 };
                  onAddInstallment(installmentData);
             }
@@ -789,16 +924,17 @@ const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, select
     const formColorClasses = {
         red: { border: 'border-red-700', ring: 'focus:ring-red-400' },
     };
-    const currentFormColors = formColorClasses[baseColor] || formColorClasses.gray;
+    const currentFormColors = formColorClasses[baseColor] || formColorClasses.red; // Default para red aqui
     const buttonGradientClasses = {
         red: 'from-red-400 to-pink-500 hover:shadow-red-500/50',
     };
-    const currentButtonGradient = buttonGradientClasses[baseColor] || 'from-gray-400 to-gray-600';
+    const currentButtonGradient = buttonGradientClasses[baseColor] || buttonGradientClasses.red;
 
     return (
         <div className="mt-8 pt-6 border-t border-gray-700">
             <h2 className={`text-lg font-semibold text-${baseColor}-400 mb-4`}>Adicionar Compra Parcelada</h2>
-             <div className="flex flex-col md:flex-row gap-4 mb-6 items-end">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 items-end">
+                {/* Valor Total */}
                 <div className="flex-grow">
                      <label htmlFor={`inst-amount`} className="text-xs text-gray-400 mb-1 block">Valor Total</label>
                      <input
@@ -811,7 +947,8 @@ const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, select
                         className={`w-full bg-gray-800 ${currentFormColors.border} rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${currentFormColors.ring}`}
                     />
                 </div>
-                <div className="flex-grow-[2]">
+                {/* Descrição */}
+                <div className="flex-grow md:col-span-2 lg:col-span-1">
                     <label htmlFor={`inst-description`} className="text-xs text-gray-400 mb-1 block">Descrição</label>
                     <input
                         id={`inst-description`}
@@ -822,6 +959,7 @@ const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, select
                         className={`w-full bg-gray-800 ${currentFormColors.border} rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${currentFormColors.ring}`}
                     />
                 </div>
+                 {/* Nº Parcelas */}
                 <div className="flex-grow">
                     <label htmlFor={`inst-months`} className="text-xs text-gray-400 mb-1 block">Nº Parcelas</label>
                     <input
@@ -832,12 +970,14 @@ const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, select
                         placeholder="Ex: 12"
                         value={months}
                         onChange={(e) => setMonths(parseInt(e.target.value) || 2)}
-                        className={`w-full bg-gray-800 ${currentFormColors.border} rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${currentFormColors.ring}`}
+                         className={`w-full bg-gray-800 ${currentFormColors.border} rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${currentFormColors.ring}`}
                     />
                 </div>
+
+                {/* Botão Parcelar */}
                 <button
                     onClick={handleAddInstallment}
-                    className={`bg-gradient-to-r ${currentButtonGradient} text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg self-end`}
+                    className={`lg:col-start-4 bg-gradient-to-r ${currentButtonGradient} text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg self-end h-[42px]`}
                 >
                     Parcelar
                 </button>
@@ -847,7 +987,16 @@ const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, select
 };
 
 // ** InstallmentList Component (Displays only installments for the current month) **
-const InstallmentList = ({ installments, selectedMonth, selectedYear, formatCurrency, onRemoveInstallment, itemTypeColor }) => {
+const InstallmentList = ({
+    installments,
+    selectedMonth,
+    selectedYear,
+    formatCurrency,
+    onRemoveInstallment,
+    itemTypeColor,
+    // *** NOVO PROP ***
+    showPaymentMethod = false
+}) => {
 
     const filteredInstallments = useMemo(() => {
         return installments.filter(item => {
@@ -871,52 +1020,36 @@ const InstallmentList = ({ installments, selectedMonth, selectedYear, formatCurr
 
     return (
         <div className="mt-8 pt-6 border-t border-gray-700">
-             <h3 className="text-lg font-medium text-gray-300 mb-4">
-                Parcelas de {MONTH_NAMES[selectedMonth]}/{selectedYear}
-             </h3>
+             {/* ... Título ... */}
              <div className="overflow-x-auto">
                  <table className="w-full">
                      <thead>
-                         <tr className="border-b border-gray-800">
-                             <th className="text-left py-3 px-4 text-gray-400 font-medium">Descrição</th>
-                             <th className="text-right py-3 px-4 text-gray-400 font-medium">Valor da Parcela</th>
-                             <th className="text-right py-3 px-4 text-gray-400 font-medium">Ações</th>
-                         </tr>
+                         {/* ... thead ... */}
                      </thead>
                      <tbody>
                          {filteredInstallments.map((item) => (
                             <tr key={item.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-                                <td className="py-3 px-4">{item.description}</td>
-                                <td className={`py-3 px-4 text-right font-medium text-${itemTypeColor}`}>
-                                    {formatCurrency(item.amount)}
+                                <td className="py-3 px-4">
+                                     {/* *** EXIBIR INDICADOR AQUI *** */}
+                                     <div className="flex items-center space-x-2">
+                                        {showPaymentMethod && item.paymentMethod && (
+                                            <span
+                                              className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                                                item.paymentMethod === 'credit' ? 'bg-blue-600 text-blue-100' : 'bg-yellow-600 text-yellow-100'
+                                              }`}
+                                              title={item.paymentMethod === 'credit' ? 'Crédito' : 'Débito'}
+                                            >
+                                              {item.paymentMethod === 'credit' ? 'C' : 'D'}
+                                            </span>
+                                        )}
+                                        <span className="truncate">{item.description}</span>
+                                    </div>
                                 </td>
-                                <td className="py-3 px-4 text-right whitespace-nowrap">
-                                     {/* Removing one installment might require removing all related ones - complex! */}
-                                     {/* For simplicity, just remove this specific entry */}
-                                     <button
-                                         onClick={() => {
-                                            if(window.confirm(`Remover apenas esta parcela (${item.description})? Isso NÃO removerá as outras parcelas desta compra.`)){
-                                                onRemoveInstallment(item.id);
-                                            }
-                                         }}
-                                         className="text-red-400 hover:text-red-300 text-sm"
-                                         title="Remover esta parcela"
-                                     >
-                                         Remover
-                                     </button>
-                                      {/* Add button to remove ALL installments of this group? */}
-                                      {/* <button onClick={() => onRemoveInstallmentGroup(item.groupId)} className="...">Remover Compra</button> */}
-                                </td>
+                                {/* ... Célula Valor ... */}
+                                {/* ... Célula Ações ... */}
                             </tr>
                          ))}
-                         {/* Total Row for Installments */}
-                        <tr className="bg-gray-800/50">
-                            <td className="py-3 px-4 font-semibold">Total Parcelas</td>
-                            <td className={`py-3 px-4 text-right font-bold text-${itemTypeColor}`}>
-                                {formatCurrency(totalInstallmentValue)}
-                            </td>
-                            <td></td>
-                        </tr>
+                         {/* ... Linha Total ... */}
                      </tbody>
                  </table>
              </div>
