@@ -57,6 +57,26 @@ const generateYearOptions = (range = 5) => {
   return options;
 };
 
+// *** NOVA FUNÇÃO AUXILIAR ***
+const formatDateDisplay = (isoDateString) => {
+    if (!isoDateString) return '---'; // Retorna algo se não houver data
+    try {
+        // Adiciona 'T00:00:00' para evitar problemas de fuso horário que podem mudar o dia
+        const date = new Date(isoDateString.split('T')[0] + 'T00:00:00');
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Meses são 0-indexados
+        const year = date.getFullYear();
+        // Verificar se a data é válida após a criação
+        if (isNaN(date.getTime())) {
+            return 'Inválida';
+        }
+        return `${day}/${month}/${year}`;
+    } catch (e) {
+        console.error("Error formatting date:", isoDateString, e);
+        return 'Erro Data'; // Retorna erro se a string for inválida
+    }
+};
+
 // --- Child Components ---
 
 // ** AuthForm Component **
@@ -459,17 +479,20 @@ const TransactionTable = ({
     allowEdit = true, // Certifique-se que está sendo passado como true de TransactionSection
     showCard = false,
     cards = {},
-    showPaymentMethod = false
+    showPaymentMethod = false,
+    baseColor,
+    // *** NOVOS PROPS ***
+    showDateColumn = false, // Controla se a coluna de data é exibida
+    formatDateDisplay // Função para formatar a data para exibição
 }) => {
-
-    // *** DEBUG: Verifique os dados recebidos ***
-    // console.log("Items in TransactionTable:", items); // Descomente para ver se os items têm 'amount'
 
     return (
         <div className="overflow-x-auto mt-8">
             <table className="w-full">
                 <thead>
                     <tr className="border-b border-gray-800">
+                        {/* *** ADICIONAR Header de Data *** */}
+                        {showDateColumn && <th className="text-left py-3 px-4 text-gray-400 font-medium">Data</th>}
                         <th className="text-left py-3 px-4 text-gray-400 font-medium">Descrição</th>
                         <th className="text-right py-3 px-4 text-gray-400 font-medium">Valor</th>
                         {/* A coluna Ações só aparece se allowEdit for true */}
@@ -478,11 +501,27 @@ const TransactionTable = ({
                 </thead>
                 <tbody>
                     {items.map((item) => {
-                         // *** DEBUG: Verifique cada item ***
-                         // console.log("Rendering item:", item); // Descomente para ver cada item sendo renderizado
-
                          return ( // Certifique-se que este return existe!
                             <tr key={item.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+
+                                {/* *** ADICIONAR Célula de Data *** */}
+                                {showDateColumn && (
+                                    <td className="py-3 px-4 whitespace-nowrap">
+                                        {editingId === item.id ? (
+                                            // Input de data no modo de edição
+                                            <input
+                                                type="date"
+                                                value={editForm.date} // Deve estar no formato YYYY-MM-DD
+                                                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                                className="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white w-full appearance-none"
+                                                style={{ colorScheme: 'dark' }}
+                                            />
+                                        ) : (
+                                            // Exibir data formatada
+                                            formatDateDisplay(item.date) // Usa a função passada por prop
+                                        )}
+                                    </td>
+                                )}
 
                                 {/* CÉLULA 1: Descrição, Indicador C/D, Cartão */}
                                 <td className="py-3 px-4">
@@ -590,6 +629,8 @@ const TransactionTable = ({
                     {/* Linha Total */}
                     {items.length > 0 && ( // Só mostra total se houver itens
                         <tr className="bg-gray-800/50">
+                            {/* Adicionar célula vazia para coluna Data no total */}
+                            {showDateColumn && <td></td>}
                             <td className="py-3 px-4 font-semibold">Total</td>
                             <td className={`py-3 px-4 text-right font-bold text-${itemTypeColor}`}>
                                 {formatCurrency(items.reduce((acc, item) => acc + (item.amount || 0), 0))} {/* Garante que amount existe */}
@@ -628,54 +669,120 @@ const TransactionSection = ({
     // *** NOVO ESTADO para método de pagamento (default: crédito) ***
     const [paymentMethod, setPaymentMethod] = useState('credit');
 
+    // Inicializa com o primeiro dia do mês/ano selecionado ou data atual se for recorrente
+    const initialDate = useMemo(() => {
+        const today = new Date();
+        const date = isRecurring ? today : new Date(selectedYear, selectedMonth, today.getDate()); // Dia 1 do mês selecionado
+        return date.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    }, [selectedMonth, selectedYear, isRecurring]); // Recalcula se o mês/ano mudar
+    const [transactionDate, setTransactionDate] = useState(initialDate);
+
+    // Atualizar data inicial se mês/ano mudar E NÃO for recorrente
+    useEffect(() => {
+        if (!isRecurring) {
+            const newInitialDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0];
+            // Só atualiza se a data atual NÃO estiver no mês/ano selecionado (evita reset desnecessário)
+            try {
+                const currentDateObj = new Date(transactionDate + 'T00:00:00');
+                 if(currentDateObj.getMonth() !== selectedMonth || currentDateObj.getFullYear() !== selectedYear) {
+                    setTransactionDate(newInitialDate);
+                 }
+            } catch {
+                setTransactionDate(newInitialDate); // Define se a data atual for inválida
+            }
+        }
+        // Se for recorrente, a data não deve mudar com o seletor de mês/ano
+    }, [selectedMonth, selectedYear, isRecurring, transactionDate]);
+
     // State for editing
     const [editingId, setEditingId] = useState(null);
-    const [editForm, setEditForm] = useState({ amount: '', description: '' });
-    // Não vamos adicionar edição de paymentMethod por enquanto para simplificar
+    // *** Adicionar date ao editForm ***
+    const [editForm, setEditForm] = useState({ amount: '', description: '', date: '' });
 
     const handleAdd = () => {
         const parsedAmount = parseFloat(amount);
+        // *** VALIDAÇÃO: Checar se transactionDate é válida ***
+        let itemDateISO = '';
+        try {
+            // Adiciona T00:00:00 para consistência de timezone ao salvar
+             itemDateISO = new Date(transactionDate + 'T00:00:00').toISOString();
+             if (isNaN(new Date(itemDateISO).getTime())) throw new Error("Invalid Date"); // Checa se a conversão foi válida
+        } catch (e) {
+             alert('Por favor, insira uma data válida.');
+             return; // Impede a adição
+        }
+
         if (description.trim() && !isNaN(parsedAmount) && parsedAmount > 0) {
             const newItemData = {
                 amount: parsedAmount,
                 description: description.trim(),
                 card: showCardOption ? (selectedCard || null) : undefined,
-                // *** INCLUIR paymentMethod ***
-                paymentMethod: (baseColor === 'red' || baseColor === 'orange') ? paymentMethod : undefined, // Apenas para despesas e recorrentes
-                date: isRecurring ? new Date().toISOString() : new Date(selectedYear, selectedMonth, new Date().getDate()).toISOString(),
+                paymentMethod: (baseColor === 'red' || baseColor === 'orange') ? paymentMethod : undefined,
+                 // *** USAR a data do input ***
+                date: itemDateISO,
             };
             onAddItem(newItemData);
             // Reset form
             setAmount('');
             setDescription('');
             setSelectedCard('');
-            setPaymentMethod('credit'); // Reset para o default
+            setPaymentMethod('credit');
+             // Reset date para o início do mês/ano atual ou hoje (recorrente)
+            setTransactionDate(initialDate);
         } else {
-            alert('Por favor, insira uma descrição e um valor válido.');
+            alert('Por favor, insira uma descrição, valor e data válidos.');
         }
     };
 
     const handleEditStart = (item) => {
         setEditingId(item.id);
-        setEditForm({ amount: item.amount, description: item.description });
+        // *** Popular date no editForm (converter ISO para YYYY-MM-DD) ***
+        let dateForInput = '';
+        if (item.date) {
+            try {
+                 // Tenta converter a data ISO para o formato YYYY-MM-DD
+                 // Adiciona T00:00:00 para garantir que o timezone não mude o dia na conversão
+                 dateForInput = new Date(item.date.split('T')[0] + 'T00:00:00').toISOString().split('T')[0];
+            } catch {
+                dateForInput = ''; // Deixa vazio se a data armazenada for inválida
+            }
+        }
+        setEditForm({
+            amount: item.amount,
+            description: item.description,
+            date: dateForInput // Formato YYYY-MM-DD
+            // Não editamos card ou payment method aqui por simplicidade
+        });
     };
 
     const handleEditSave = (id) => {
         const parsedAmount = parseFloat(editForm.amount);
-        if (editForm.description.trim() && !isNaN(parsedAmount) && parsedAmount >= 0) { // Allow 0 for edits
+         // *** VALIDAÇÃO da data no editForm ***
+        let updatedDateISO = '';
+        try {
+            updatedDateISO = new Date(editForm.date + 'T00:00:00').toISOString();
+            if (isNaN(new Date(updatedDateISO).getTime())) throw new Error("Invalid Date");
+        } catch (e) {
+             alert('Por favor, insira uma data válida para editar.');
+             return;
+        }
+
+        if (editForm.description.trim() && !isNaN(parsedAmount) && parsedAmount >= 0) {
              onUpdateItem(id, {
                 amount: parsedAmount,
                 description: editForm.description.trim(),
+                 // *** Incluir a data atualizada ***
+                date: updatedDateISO,
              });
-             handleEditCancel(); // Reset editing state
+             handleEditCancel();
         } else {
-             alert('Por favor, insira uma descrição e um valor válido para editar.');
+             alert('Por favor, insira uma descrição, valor e data válidos para editar.');
         }
     };
 
     const handleEditCancel = () => {
         setEditingId(null);
-        setEditForm({ amount: '', description: '' });
+        setEditForm({ amount: '', description: '', date: '' });
     };
 
     // Filter items based on selected month/year unless it's recurring
@@ -750,7 +857,7 @@ const TransactionSection = ({
             <h2 className={`text-xl font-semibold text-${baseColor}-400 mb-4`}>{title}</h2>
 
             {/* Add Form */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 items-end"> {/* Layout em grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 items-end"> {/* Layout em grid */}
                 {/* Valor */}
                 <div className="flex-grow">
                     <label htmlFor={`${baseColor}-amount`} className="text-xs text-gray-400 mb-1 block">Valor</label>
@@ -766,7 +873,7 @@ const TransactionSection = ({
                 </div>
 
                 {/* Descrição */}
-                <div className="flex-grow md:col-span-2 lg:col-span-1"> {/* Ocupa mais espaço em telas médias */}
+                <div className="flex-grow md:col-span-1"> {/* Manter descrição mais estreita */}
                      <label htmlFor={`${baseColor}-description`} className="text-xs text-gray-400 mb-1 block">Descrição</label>
                     <input
                         id={`${baseColor}-description`}
@@ -775,6 +882,20 @@ const TransactionSection = ({
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         className={`w-full bg-gray-800 ${currentFormColors.border} rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${currentFormColors.ring}`}
+                    />
+                </div>
+
+                {/* *** NOVO CAMPO DE DATA *** */}
+                <div className="flex-grow">
+                    <label htmlFor={`${baseColor}-date`} className="text-xs text-gray-400 mb-1 block">Data</label>
+                    <input
+                        id={`${baseColor}-date`}
+                        type="date"
+                        value={transactionDate}
+                        onChange={(e) => setTransactionDate(e.target.value)}
+                        className={`w-full bg-gray-800 ${currentFormColors.border} rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${currentFormColors.ring} appearance-none`} // appearance-none pode ajudar com estilo
+                        // Estilo para o indicador de data (pode variar entre navegadores)
+                        style={{ colorScheme: 'dark' }} // Ajuda com o date picker em modo escuro
                     />
                 </div>
 
@@ -817,7 +938,7 @@ const TransactionSection = ({
                  {/* Botão Adicionar (agora ocupa uma coluna no grid em telas maiores) */}
                 <button
                     onClick={handleAdd}
-                    className={`lg:col-start-4 bg-gradient-to-r ${currentButtonGradient} text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg self-end h-[42px]`} // Altura fixa para alinhar
+                    className={`lg:col-start-5 bg-gradient-to-r ${currentButtonGradient} text-white font-medium rounded-md px-6 py-2 transition-all duration-300 hover:shadow-lg self-end h-[42px]`} // Altura fixa para alinhar
                 >
                     Adicionar
                 </button>
@@ -855,6 +976,10 @@ const TransactionSection = ({
                     cards={cards}
                     // *** PASSAR showPaymentMethod (novo prop) ***
                     showPaymentMethod={baseColor === 'red' || baseColor === 'orange'} // Mostra tipo só para despesas/recorrentes
+                    baseColor={baseColor}
+                    // *** PASSAR showDateColumn ***
+                    showDateColumn={true} // Sempre mostrar data nas tabelas principais
+                    formatDateDisplay={formatDateDisplay} // Passar a função de formatação
                 />
             ) : (
                  <p className="text-gray-500 italic">Nenhum item registrado {isRecurring ? '' : `para ${MONTH_NAMES[selectedMonth]}/${selectedYear}`}.</p>
@@ -871,6 +996,9 @@ const TransactionSection = ({
                     itemTypeColor={itemTypeColor}
                     // *** PASSAR showPaymentMethod para lista de parcelas também ***
                     showPaymentMethod={true} // Parcelas também mostram (geralmente crédito)
+                    // *** PASSAR showDateColumn e formatDateDisplay ***
+                    showDateColumn={true}
+                    formatDateDisplay={formatDateDisplay}
                  />
             )}
         </div>
@@ -994,8 +1122,10 @@ const InstallmentList = ({
     formatCurrency,
     onRemoveInstallment,
     itemTypeColor,
-    // *** NOVO PROP ***
-    showPaymentMethod = false
+    showPaymentMethod = false,
+    // *** RECEBER NOVOS PROPS ***
+    showDateColumn = false,
+    formatDateDisplay
 }) => {
 
     const filteredInstallments = useMemo(() => {
@@ -1015,43 +1145,34 @@ const InstallmentList = ({
         return null; // Don't render anything if no installments for this month
     }
 
-     // Calculate total for displayed installments
-    const totalInstallmentValue = filteredInstallments.reduce((acc, item) => acc + item.amount, 0);
-
     return (
         <div className="mt-8 pt-6 border-t border-gray-700">
-             {/* ... Título ... */}
+             <h3 className="text-lg font-medium text-gray-300 mb-4">
+                Parcelas de {MONTH_NAMES[selectedMonth]}/{selectedYear}
+             </h3>
              <div className="overflow-x-auto">
-                 <table className="w-full">
-                     <thead>
-                         {/* ... thead ... */}
-                     </thead>
-                     <tbody>
-                         {filteredInstallments.map((item) => (
-                            <tr key={item.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-                                <td className="py-3 px-4">
-                                     {/* *** EXIBIR INDICADOR AQUI *** */}
-                                     <div className="flex items-center space-x-2">
-                                        {showPaymentMethod && item.paymentMethod && (
-                                            <span
-                                              className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-                                                item.paymentMethod === 'credit' ? 'bg-blue-600 text-blue-100' : 'bg-yellow-600 text-yellow-100'
-                                              }`}
-                                              title={item.paymentMethod === 'credit' ? 'Crédito' : 'Débito'}
-                                            >
-                                              {item.paymentMethod === 'credit' ? 'C' : 'D'}
-                                            </span>
-                                        )}
-                                        <span className="truncate">{item.description}</span>
-                                    </div>
-                                </td>
-                                {/* ... Célula Valor ... */}
-                                {/* ... Célula Ações ... */}
-                            </tr>
-                         ))}
-                         {/* ... Linha Total ... */}
-                     </tbody>
-                 </table>
+                {/* *** ATUALIZAR CHAMADA DA TransactionTable *** */}
+                <TransactionTable
+                     items={filteredInstallments}
+                     onRemove={onRemoveInstallment}
+                     // Edição de parcelas individuais pode ser complexo, desabilitar por ora?
+                     allowEdit={false} // <-- Desabilitar edição direta de parcelas na lista
+                     // onEditStart={(item) => console.log("Edit installment?", item)} // Placeholder se habilitar
+                     // onEditSave={() => {}}
+                     // onEditCancel={() => {}}
+                     // editingId={null}
+                     // editForm={{}}
+                     // setEditForm={() => {}}
+                     formatCurrency={formatCurrency}
+                     itemTypeColor={itemTypeColor}
+                     showPaymentMethod={showPaymentMethod} // Passar prop existente
+                     baseColor="red" // Parcelas são sempre "despesa" (red)
+                     // Passar novos props
+                     showDateColumn={showDateColumn}
+                     formatDateDisplay={formatDateDisplay}
+                     // Não precisa de cards aqui
+                 />
+                 {/* Tabela antiga removida, usamos TransactionTable agora */}
              </div>
         </div>
     );
@@ -1175,13 +1296,6 @@ const FinancialApp = () => {
            return;
        }
 
-       // Simple check to avoid saving the initial empty state immediately after load/login
-       const hasDataToSave = financialData.incomeList.length > 0 ||
-                              financialData.expenseList.length > 0 ||
-                              financialData.recurringList.length > 0;
-
-       // More robust check: compare with previous state if needed
-
        setIsSaving(true); // Indicate saving process
        // Debounce would be ideal here
        const saveTimer = setTimeout(() => {
@@ -1238,9 +1352,10 @@ const FinancialApp = () => {
     if (!user) return;
     setProfileError('');
     try {
-        const newProfileId = await createProfile(user.uid, profileName);
-        // Optionally auto-select the new profile
-        // setSelectedProfile(newProfileId); // Let the listener handle the update for consistency
+        // // Optionally auto-select the new profile
+        // const newProfileId = await createProfile(user.uid, profileName);        
+        await createProfile(user.uid, profileName); // Apenas chama a função
+
         alert('Perfil criado com sucesso!'); // Keep simple alert for user feedback here
     } catch (error) {
         console.error('Create profile error:', error);
