@@ -57,8 +57,8 @@ const createInitialUserProfile = (userId) => {
     financialData: {
       incomeList: [],
       expenseList: [],
-      recurringList: [],
-      installmentList: []
+      recurringList: [] // Removido installmentList daqui
+      // installmentList: [] // REMOVIDO
     }
   });
 };
@@ -69,7 +69,12 @@ const createProfile = (userId, profileName) => {
   const newProfileRef = push(profilesRef); // Get key first
   const newProfileData = {
     name: profileName,
-    financialData: { incomeList: [], expenseList: [], recurringList: [], installmentList: [] }
+    financialData: {
+        incomeList: [],
+        expenseList: [],
+        recurringList: [] // Removido installmentList daqui
+        // installmentList: [] // REMOVIDO
+    }
   };
   return set(newProfileRef, newProfileData).then(() => newProfileRef.key); // Return the key on success
 };
@@ -85,7 +90,7 @@ const saveFinancialData = (userId, profileId, data) => {
     incomeList: data.incomeList || [],
     expenseList: data.expenseList || [],
     recurringList: data.recurringList || [],
-    installmentList: data.installmentList || [],
+    // installmentList: data.installmentList || [], // REMOVIDO - Não salva mais esta lista
   };
   return set(dataRef, dataToSave);
 };
@@ -116,6 +121,8 @@ const listenToProfiles = (userId, callback) => {
 const listenToFinancialData = (userId, profileId, callback) => {
   if (!userId || !profileId) {
       console.warn("Cannot listen to financial data without User ID and Profile ID.");
+      // Retornar uma estrutura vazia consistente
+      callback({ incomeList: [], expenseList: [], recurringList: [] });
       return () => {}; // Return empty unsubscribe function
   }
   const financialDataRef = ref(database, `users/${userId}/profiles/${profileId}/financialData`);
@@ -127,13 +134,14 @@ const listenToFinancialData = (userId, profileId, callback) => {
         incomeList: data?.incomeList || [],
         expenseList: data?.expenseList || [],
         recurringList: data?.recurringList || [],
-        installmentList: data?.installmentList || [],
+        // installmentList: data?.installmentList || [], // REMOVIDO
     };
     callback(structuredData);
   }, (error) => {
       console.error("Error listening to financial data:", error);
       // Optionally provide empty structure on error
-      callback({ incomeList: [], expenseList: [], recurringList: [], installmentList: [] });
+      // *** MODIFICAÇÃO AQUI: Remover installmentList ***
+      callback({ incomeList: [], expenseList: [], recurringList: [] });
   });
   // Return the unsubscribe function
   return () => off(financialDataRef, 'value', listener);
