@@ -480,11 +480,30 @@ const TransactionTable = ({
     showCard = false,
     cards = {},
     showPaymentMethod = false,
+    // *** RECEBER NOVAS PROPS ***
+    sortConfig,       // Objeto { key: string, direction: 'asc' | 'desc' }
+    onSortRequest,    // Função para chamar quando o cabeçalho é clicado (key: string) => void
     baseColor,
     // *** NOVOS PROPS ***
     showDateColumn = false, // Controla se a coluna de data é exibida
     formatDateDisplay // Função para formatar a data para exibição
 }) => {
+
+    // Função helper para obter classes e indicador de ordenação para um cabeçalho
+    const getSortIndicator = (columnKey) => {
+        if (!sortConfig || sortConfig.key !== columnKey) {
+            return null; // Sem indicador se não está ordenando por esta coluna
+        }
+        return sortConfig.direction === 'asc' ? ' ▲' : ' ▼'; // Indicador de direção
+    };
+
+    const getHeaderClasses = (columnKey) => {
+        let classes = "text-left py-3 px-4 text-gray-400 font-medium";
+        if (onSortRequest) { // Adiciona estilos de clique se a função for fornecida
+            classes += " cursor-pointer hover:text-white transition-colors";
+        }
+        return classes;
+    };
 
     return (
         <div className="overflow-x-auto mt-8">
@@ -492,7 +511,13 @@ const TransactionTable = ({
                 <thead>
                     <tr className="border-b border-gray-800">
                         {/* *** ADICIONAR Header de Data *** */}
-                        {showDateColumn && <th className="text-left py-3 px-4 text-gray-400 font-medium">Data</th>}
+                        {showDateColumn && (
+                        <th className={getHeaderClasses('date')}
+                        onClick={() => onSortRequest ? onSortRequest('date') : null} // Chama o handler se existir
+                        >Data
+                        {getSortIndicator('date')} {/* Mostra o indicador ▲ ou ▼ */}
+                        </th>
+                        )}
                         <th className="text-left py-3 px-4 text-gray-400 font-medium">Descrição</th>
                         <th className="text-right py-3 px-4 text-gray-400 font-medium">Valor</th>
                         {/* A coluna Ações só aparece se allowEdit for true */}
@@ -668,6 +693,8 @@ const TransactionSection = ({
     const [selectedCard, setSelectedCard] = useState('');
     // *** NOVO ESTADO para método de pagamento (default: crédito) ***
     const [paymentMethod, setPaymentMethod] = useState('credit');
+    // *** NOVO ESTADO para ordenação ***
+    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' }); // Inicia ordenando por data descendente
 
     // Inicializa com o primeiro dia do mês/ano selecionado ou data atual se for recorrente
     const initialDate = useMemo(() => {
@@ -676,6 +703,17 @@ const TransactionSection = ({
         return date.toISOString().split('T')[0]; // Formato YYYY-MM-DD
     }, [selectedMonth, selectedYear, isRecurring]); // Recalcula se o mês/ano mudar
     const [transactionDate, setTransactionDate] = useState(initialDate);
+
+    // *** NOVA FUNÇÃO para lidar com a solicitação de ordenação ***
+    const handleSortRequest = (key) => {
+        let direction = 'asc';
+        // Se clicar na mesma coluna que já está ordenada ascendentemente, inverte para descendente
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        // Senão, ordena ascendentemente pela nova coluna (ou pela mesma se estava descendente)
+        setSortConfig({ key, direction });
+    };
 
     // Atualizar data inicial se mês/ano mudar E NÃO for recorrente
     useEffect(() => {
@@ -787,18 +825,64 @@ const TransactionSection = ({
 
     // Filter items based on selected month/year unless it's recurring
     const filteredItems = useMemo(() => {
-        if (isRecurring) return items; // Show all recurring items
-        return items.filter(item => {
-            if (!item.date) return false; // Skip items without a date
-            try {
-                const itemDate = new Date(item.date);
-                return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
-            } catch (e) {
-                console.error("Error parsing item date:", item.date, e);
-                return false; // Exclude items with invalid dates
-            }
-        });
-    }, [items, selectedMonth, selectedYear, isRecurring]);
+        // Garante que items seja um array para evitar erros se vier como undefined/null
+        let itemsToFilter = items || [];
+        let initiallyFiltered;
+        if (isRecurring) {
+            // Para recorrentes, filtramos apenas itens que têm uma data válida
+             initiallyFiltered = itemsToFilter.filter(item => {
+                if (!item.date) return false;
+                try {
+                    // Checa se a data pode ser convertida para um número válido
+                    return !isNaN(new Date(item.date).getTime());
+                } catch {
+                    return false; // Exclui se houver erro na conversão
+                }
+            });
+        } else {
+            // Para não recorrentes, filtramos por mês/ano E data válida
+            initiallyFiltered = itemsToFilter.filter(item => {
+                if (!item.date) return false; // Skip items without a date
+                try {
+                    const itemDate = new Date(item.date);
+                    // Check for invalid date explicitly
+                    if (isNaN(itemDate.getTime())) return false;
+                    return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
+                } catch (e) {
+                    console.error("Error parsing item date during filter:", item.date, e);
+                    return false; // Exclude items with invalid dates
+                }
+            });
+        }
+
+        // *** INÍCIO DA MODIFICAÇÃO: ORDENAÇÃO ***
+        // Cria uma cópia antes de ordenar para não modificar o array original (boa prática)
+        const sortedItems = [...initiallyFiltered].sort((a, b) => {
+            // Por enquanto, só ordenamos por 'date'. Adicionar mais chaves exigiria mais lógica aqui.
+            if (sortConfig.key === 'date') {
+                try {
+                    const dateA = new Date(a.date);
+                    const dateB = new Date(b.date);
+                    if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0; // Não ordena se alguma data for inválida
+
+                    if (sortConfig.direction === 'asc') {
+                        return dateA.getTime() - dateB.getTime(); // Ascendente
+                    } else {
+                        return dateB.getTime() - dateA.getTime(); // Descendente
+                    }
+                } catch (e) {
+                    console.error("Error comparing dates during sort:", a.date, b.date, e);
+                    return 0;
+                }
+        }
+        // Se tivéssemos outras colunas, adicionaríamos 'else if (sortConfig.key === 'description')', etc.
+        return 0; // Retorna 0 se a chave não for 'date' (ou outra implementada)
+    });
+    // *** FIM DA ATUALIZAÇÃO DA ORDENAÇÃO ***
+
+    return sortedItems;
+
+    }, [items, selectedMonth, selectedYear, isRecurring, sortConfig]); // *** ADICIONAR sortConfig às dependências ***
 
      // Define color mapping for Tailwind form inputs
     const formColorClasses = {
@@ -980,6 +1064,9 @@ const TransactionSection = ({
                     // *** PASSAR showDateColumn ***
                     showDateColumn={true} // Sempre mostrar data nas tabelas principais
                     formatDateDisplay={formatDateDisplay} // Passar a função de formatação
+                    // *** PASSAR NOVAS PROPS DE ORDENAÇÃO ***
+                    sortConfig={sortConfig}
+                    onSortRequest={handleSortRequest}
                 />
             ) : (
                  <p className="text-gray-500 italic">Nenhum item registrado {isRecurring ? '' : `para ${MONTH_NAMES[selectedMonth]}/${selectedYear}`}.</p>
@@ -1128,18 +1215,60 @@ const InstallmentList = ({
     formatDateDisplay
 }) => {
 
+    // *** NOVO ESTADO para ordenação ***
+    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
+
+    // *** NOVA FUNÇÃO para lidar com a solicitação de ordenação ***
+    const handleSortRequest = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const filteredInstallments = useMemo(() => {
-        return installments.filter(item => {
+        // Garante que installments seja um array
+        const installmentsToFilter = installments || [];
+
+        const filtered = installmentsToFilter.filter(item => {
              if (!item.date || !item.isInstallment) return false;
             try {
                 const itemDate = new Date(item.date);
+                 // Check for invalid date explicitly
+                 if (isNaN(itemDate.getTime())) return false;
                 return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
             } catch (e) {
                 console.error("Error parsing installment date:", item.date, e);
                 return false;
             }
         });
-    }, [installments, selectedMonth, selectedYear]);
+
+        // *** LÓGICA DE ORDENAÇÃO ATUALIZADA ***
+        const sorted = [...filtered].sort((a, b) => {
+            if (sortConfig.key === 'date') {
+                try {
+                    const dateA = new Date(a.date);
+                    const dateB = new Date(b.date);
+                    if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+
+                    if (sortConfig.direction === 'asc') {
+                        return dateA.getTime() - dateB.getTime();
+                    } else {
+                        return dateB.getTime() - dateA.getTime();
+                    }
+                } catch (e) {
+                    console.error("Error comparing installment dates during sort:", a.date, b.date, e);
+                    return 0;
+                }
+            }
+            return 0;
+        });
+        // *** FIM DA ATUALIZAÇÃO DA ORDENAÇÃO ***
+
+        return sorted;
+
+    }, [installments, selectedMonth, selectedYear, sortConfig]); // *** ADICIONAR sortConfig às dependências ***
 
     if (filteredInstallments.length === 0) {
         return null; // Don't render anything if no installments for this month
@@ -1170,7 +1299,9 @@ const InstallmentList = ({
                      // Passar novos props
                      showDateColumn={showDateColumn}
                      formatDateDisplay={formatDateDisplay}
-                     // Não precisa de cards aqui
+                     // *** PASSAR NOVAS PROPS DE ORDENAÇÃO ***
+                     sortConfig={sortConfig}
+                     onSortRequest={handleSortRequest}
                  />
                  {/* Tabela antiga removida, usamos TransactionTable agora */}
              </div>
