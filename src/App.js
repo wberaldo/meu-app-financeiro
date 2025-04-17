@@ -694,7 +694,7 @@ const TransactionSection = ({
     // *** NOVO ESTADO para método de pagamento (default: crédito) ***
     const [paymentMethod, setPaymentMethod] = useState('credit');
     // *** NOVO ESTADO para ordenação ***
-    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' }); // Inicia ordenando por data descendente
+    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'asc' }); // Inicia ordenando por data descendente
 
     // Inicializa com o primeiro dia do mês/ano selecionado ou data atual se for recorrente
     const initialDate = useMemo(() => {
@@ -1216,7 +1216,7 @@ const InstallmentList = ({
 }) => {
 
     // *** NOVO ESTADO para ordenação ***
-    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'asc' });
 
     // *** NOVA FUNÇÃO para lidar com a solicitação de ordenação ***
     const handleSortRequest = (key) => {
