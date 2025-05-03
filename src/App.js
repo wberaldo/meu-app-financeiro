@@ -21,7 +21,7 @@ const CARDS = {
 };
 const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const DEFAULT_CATEGORIES = [
-    'Salário', 'Freelance', 'Rendimentos', 'Presente', 'Reembolso', 'Outras Receitas', 'Moradia', 'Alimentação', 'Supermercado', 'Transporte', 'Contas Fixas', 'Saúde', 'Educação', 'Lazer', 'Restaurantes/Bares', 'Compras', 'Vestuário', 'Viagem', 'Impostos', 'Assinaturas', 'Cuidados Pessoais', 'Presentes/Doações', 'Investimentos (Saída)', 'Taxas Bancárias', 'Outras Despesas', 'Sem Categoria', 'Saldo Mês Anterior', 'Cartão de Crédito', 'Empréstimo', 'Financiamento', 'Seguro', 'Streaming', 'Internet'
+    'Salário', 'Freelance', 'Rendimentos', 'Presente', 'Reembolso', 'Outras Receitas', 'Moradia', 'Alimentação', 'Supermercado', 'Transporte', 'Contas Fixas', 'Saúde', 'Educação', 'Lazer', 'Restaurantes/Bares', 'Compras', 'Vestuário', 'Viagem', 'Impostos', 'Assinaturas', 'Cuidados Pessoais', 'Presentes/Doações', 'Investimentos (Saída)', 'Taxas Bancárias', 'Outras Despesas', 'Sem Categoria', 'Saldo Mês Anterior', 'Cartão de Crédito', 'Empréstimo', 'Financiamento', 'Seguro', 'Streaming', 'Internet', 'Combustível', 'Estacionamento'
   ];
 const INITIAL_TAB = localStorage.getItem('activeTab') || 'dashboard';
 const INITIAL_PROFILE = localStorage.getItem('selectedProfile') || null;
@@ -95,40 +95,42 @@ const Header = ({ user, profiles, selectedProfile, onSelectProfile, onCreateProf
     useEffect(() => { const handleClickOutside = (event) => { if (isProfileDropdownOpen && !event.target.closest('.profile-dropdown-container')) setIsProfileDropdownOpen(false); }; document.addEventListener('mousedown', handleClickOutside); return () => document.removeEventListener('mousedown', handleClickOutside); }, [isProfileDropdownOpen]);
 
     return (
-        // Outer header padding
-        <header className="px-4 sm:px-6 py-4 border-b border-gray-800">
-            {/* Inner container with max-width, relative positioning, and flex alignment */}
-            <div className="relative flex items-center max-w-7xl mx-auto h-10"> {/* Added fixed height (adjust h-10 if needed) and relative */}
+        // Added `relative` for positioning context
+        // Added `flex items-center` to help center the title with mx-auto
+        // Added a height (e.g., h-16 or h-20) for consistent vertical alignment
+        <header className="px-4 sm:px-6 py-4 border-b border-gray-800 relative flex items-center h-16"> {/* Adjust height h-16 if needed */}
 
-                {/* Centered Title Container (Absolute Positioning) */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 animate-gradient"> {/* Added animate-gradient */}
-                        Controle Financeiro
-                    </h1>
-                </div>
+            {/* Centered Title Container (Uses mx-auto within the flex header) */}
+            <div className="mx-auto">
+                <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 animate-gradient">
+                    Controle Financeiro
+                </h1>
+            </div>
 
-                {/* Right-Aligned Group (Pushed right with ml-auto) */}
-                <div className="flex items-center space-x-2 sm:space-x-4 ml-auto"> {/* Added ml-auto */}
-                    {/* Profile Dropdown */}
-                    <div className="relative profile-dropdown-container">
-                        <button onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} className="bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-medium rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50 flex items-center">
-                             Perfil: {currentProfileName} <span className="ml-2 text-xs">▼</span>
-                        </button>
-                        {isProfileDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-60 sm:w-64 bg-gray-900 border border-gray-800 rounded-lg shadow-lg z-20">
-                                {/* ... (Dropdown content remains the same) ... */}
-                                <div className="p-3 sm:p-4"> {error && <p className="text-red-500 text-xs sm:text-sm mb-2">{error}</p>} <input type="text" placeholder="Nome do Novo Perfil" value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 sm:px-4 sm:py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 mb-2" /> <button onClick={handleCreateProfile} disabled={loadingCreate || !newProfileName.trim()} className="w-full bg-gradient-to-r from-green-400 to-teal-500 text-white font-medium rounded-md px-3 py-1.5 sm:px-4 sm:py-2 text-sm transition-all duration-300 hover:shadow-lg hover:shadow-green-500/50 disabled:opacity-50"> {loadingCreate ? 'Criando...' : 'Criar Perfil'} </button> </div> <div className="border-t border-gray-800 max-h-48 overflow-y-auto"> {profiles.length > 0 ? profiles.map((profile) => ( <button key={profile.id} onClick={() => { onSelectProfile(profile.id); setIsProfileDropdownOpen(false); }} className={`w-full text-left px-3 sm:px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors ${selectedProfile === profile.id ? 'bg-gray-700 font-semibold' : ''}`}> {profile.name} </button> )) : <p className="text-gray-500 px-3 sm:px-4 py-2 text-sm italic">Nenhum perfil.</p>} </div>
-                            </div>
-                        )}
-                    </div>
-                    {/* Logout Button */}
-                    <button
-                        onClick={onLogout}
-                        className="bg-gradient-to-r from-red-400 to-pink-500 text-white font-medium rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base transition-all duration-300 hover:shadow-lg hover:shadow-red-500/50"
-                    >
-                        Logout
+            {/* Right-Aligned Group (Absolutely Positioned relative to HEADER) */}
+            {/* This div is now a DIRECT child of <header> */}
+            {/* Uses top-1/2 and translate-y-1/2 for vertical centering */}
+            {/* Uses right-4/sm:right-6 to align with header padding */}
+            <div className="absolute top-1/2 right-4 sm:right-6 transform -translate-y-1/2 flex items-center space-x-2 sm:space-x-4">
+                 {/* Profile Dropdown */}
+                 <div className="relative profile-dropdown-container">
+                    <button onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} className="bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-medium rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/50 flex items-center">
+                         Perfil: {currentProfileName} <span className="ml-2 text-xs">▼</span>
                     </button>
+                    {isProfileDropdownOpen && (
+                        <div className="absolute right-0 mt-2 w-60 sm:w-64 bg-gray-900 border border-gray-800 rounded-lg shadow-lg z-20">
+                            {/* ... (Dropdown content remains the same) ... */}
+                            <div className="p-3 sm:p-4"> {error && <p className="text-red-500 text-xs sm:text-sm mb-2">{error}</p>} <input type="text" placeholder="Nome do Novo Perfil" value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 sm:px-4 sm:py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 mb-2" /> <button onClick={handleCreateProfile} disabled={loadingCreate || !newProfileName.trim()} className="w-full bg-gradient-to-r from-green-400 to-teal-500 text-white font-medium rounded-md px-3 py-1.5 sm:px-4 sm:py-2 text-sm transition-all duration-300 hover:shadow-lg hover:shadow-green-500/50 disabled:opacity-50"> {loadingCreate ? 'Criando...' : 'Criar Perfil'} </button> </div> <div className="border-t border-gray-800 max-h-48 overflow-y-auto"> {profiles.length > 0 ? profiles.map((profile) => ( <button key={profile.id} onClick={() => { onSelectProfile(profile.id); setIsProfileDropdownOpen(false); }} className={`w-full text-left px-3 sm:px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors ${selectedProfile === profile.id ? 'bg-gray-700 font-semibold' : ''}`}> {profile.name} </button> )) : <p className="text-gray-500 px-3 sm:px-4 py-2 text-sm italic">Nenhum perfil.</p>} </div>
+                        </div>
+                    )}
                 </div>
+                {/* Logout Button */}
+                <button
+                    onClick={onLogout}
+                    className="bg-gradient-to-r from-red-400 to-pink-500 text-white font-medium rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base transition-all duration-300 hover:shadow-lg hover:shadow-red-500/50"
+                >
+                    Logout
+                </button>
             </div>
         </header>
     );
@@ -140,10 +142,50 @@ const Tabs = ({ activeTab, setActiveTab }) => {
     return ( <div className="flex justify-center my-6 px-2"> <div className="flex flex-wrap space-x-1 sm:space-x-2 bg-gray-900 rounded-lg p-1"> {tabsConfig.map(tab => ( <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={getTabClasses(tab.id, tab.color)}> {tab.label} </button> ))} </div> </div> );
 };
 
-// ** MonthYearSelector Component ** (No changes)
+// ** MonthYearSelector Component (Updated for Custom Arrow) **
 const MonthYearSelector = ({ selectedMonth, selectedYear, setSelectedMonth, setSelectedYear }) => {
     const yearOptions = useMemo(() => generateYearOptions(), []);
-    return ( <div className="flex justify-center mb-6 px-2"> <div className="flex space-x-2 sm:space-x-4"> <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm sm:text-base text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 appearance-none cursor-pointer"> {MONTH_NAMES.map((month, index) => ( <option key={index} value={index}>{month}</option> ))} </select> <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm sm:text-base text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 appearance-none cursor-pointer"> {yearOptions.map((year) => ( <option key={year} value={year}>{year}</option> ))} </select> </div> </div> );
+    return (
+        <div className="flex justify-center mb-6 px-2">
+            <div className="flex space-x-2 sm:space-x-4">
+                {/* Month Selector Wrapper */}
+                <div className="relative">
+                    <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                        // Added pr-8 for padding to not overlap arrow
+                        className="bg-gray-800 border border-gray-700 rounded-md px-3 pr-8 py-2 text-sm sm:text-base text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 appearance-none cursor-pointer"
+                    >
+                        {MONTH_NAMES.map((month, index) => (
+                            <option key={index} value={index}>{month}</option>
+                        ))}
+                    </select>
+                    {/* Custom Arrow */}
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                        ▼
+                    </span>
+                </div>
+
+                {/* Year Selector Wrapper */}
+                <div className="relative">
+                    <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                        // Added pr-8 for padding to not overlap arrow
+                        className="bg-gray-800 border border-gray-700 rounded-md px-3 pr-8 py-2 text-sm sm:text-base text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 appearance-none cursor-pointer"
+                    >
+                        {yearOptions.map((year) => (
+                            <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
+                    {/* Custom Arrow */}
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                        ▼
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // ** CardDropdown Component ** (No changes)
@@ -232,9 +274,55 @@ const TransactionSection = ({
     selectedMonth, selectedYear,
 }) => {
     const [amount, setAmount] = useState(''); const [description, setDescription] = useState(''); const [transactionDate, setTransactionDate] = useState(''); const [paymentDate, setPaymentDate] = useState(''); const [category, setCategory] = useState(''); const [selectedCard, setSelectedCard] = useState(''); const [paymentMethod, setPaymentMethod] = useState( (baseColor === 'green') ? 'deposit' : 'credit' );
-    useEffect(() => { const today = new Date(); let initialDateValue = ''; const currentLocalDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0); if (isRecurring) { initialDateValue = toInputDateString(currentLocalDate); } else { const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1, 12, 0, 0); initialDateValue = toInputDateString(firstDayOfMonth); } setTransactionDate(initialDateValue); setPaymentDate(''); }, [selectedMonth, selectedYear, isRecurring]); // ** Revised Date initialization **
+    useEffect(() => {
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        let targetDate;
+    
+            // Logic now applies to ALL tabs (Receitas, Despesas, Recorrentes)
+        if (selectedMonth === currentMonth && selectedYear === currentYear) {
+            // If viewing the current month, default to today's date
+            targetDate = new Date(currentYear, currentMonth, today.getDate(), 12, 0, 0);
+        } else {
+            // If viewing a different month, default to the 1st of that month
+            targetDate = new Date(selectedYear, selectedMonth, 1, 12, 0, 0);
+        }
+    
+        const initialDateValue = toInputDateString(targetDate);
+        setTransactionDate(initialDateValue);
+        setPaymentDate(''); // Reset payment date as well
+    
+        // Dependencies now include isRecurring
+    }, [selectedMonth, selectedYear]);
     const [sortConfig, setSortConfig] = useState({ key: 'effectiveDate', direction: 'desc' }); const [editingId, setEditingId] = useState(null); const [editForm, setEditForm] = useState({ amount: '', description: '', date: '', paymentDate: '', category: '', paymentMethod: '' });
-    const resetForm = useCallback(() => { setAmount(''); setDescription(''); setCategory(''); setSelectedCard(''); setPaymentMethod((baseColor === 'green') ? 'deposit' : 'credit'); const today = new Date(); let initialDateValue = ''; const currentLocalDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0); if (isRecurring) { initialDateValue = toInputDateString(currentLocalDate); } else { const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1, 12, 0, 0); initialDateValue = toInputDateString(firstDayOfMonth); } setTransactionDate(initialDateValue); setPaymentDate(''); }, [baseColor, selectedMonth, selectedYear, isRecurring]); // ** Revised Date initialization **
+    const resetForm = useCallback(() => {
+        setAmount('');
+        setDescription('');
+        setCategory('');
+        setSelectedCard('');
+        setPaymentMethod((baseColor === 'green') ? 'deposit' : 'credit');
+    
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        let targetDate;
+    
+            // Logic now applies to ALL tabs (Receitas, Despesas, Recorrentes)
+        if (selectedMonth === currentMonth && selectedYear === currentYear) {
+            // If viewing the current month, reset to today's date
+            targetDate = new Date(currentYear, currentMonth, today.getDate(), 12, 0, 0);
+        } else {
+            // If viewing a different month, reset to the 1st of that month
+            targetDate = new Date(selectedYear, selectedMonth, 1, 12, 0, 0);
+        }
+    
+        const initialDateValue = toInputDateString(targetDate);
+        setTransactionDate(initialDateValue);
+        setPaymentDate('');
+    
+        // Update dependencies for useCallback
+    }, [baseColor, selectedMonth, selectedYear]);
     const handleSortRequest = (key) => { let direction = 'asc'; if (sortConfig.key === key) direction = sortConfig.direction === 'asc' ? 'desc' : 'asc'; setSortConfig({ key, direction }); };
     const handleAdd = () => { const parsedAmount = parseFloat(amount); let itemDateISO = '', itemPaymentDateISO = null; try { const d = new Date(transactionDate + 'T12:00:00Z'); if (!transactionDate || isNaN(d.getTime())) throw new Error(); itemDateISO = d.toISOString(); } catch { alert('Data da Transação inválida.'); return; } if (paymentMethod === 'credit' && paymentDate) { try { const d = new Date(paymentDate + 'T12:00:00Z'); if (isNaN(d.getTime())) throw new Error(); itemPaymentDateISO = d.toISOString(); } catch { alert('Data de Pagamento inválida.'); return; } } if (description.trim() && !isNaN(parsedAmount) && parsedAmount > 0) { onAddItem({ amount: parsedAmount, description: description.trim(), date: itemDateISO, paymentDate: itemPaymentDateISO, category: category || null, paymentMethod: (baseColor === 'green') ? undefined : paymentMethod, card: showCardOption ? (selectedCard || null) : undefined }); resetForm(); } else { alert('Preencha Valor (>0), Descrição e Data da Transação.'); } };
     const handleEditStart = (item) => { setEditingId(item.id); setEditForm({ amount: item.amount ?? '', description: item.description ?? '', date: toInputDateString(item.date), paymentDate: toInputDateString(item.paymentDate), category: item.category || '', paymentMethod: item.paymentMethod || '' }); }; const handleEditSave = (id) => { const parsedAmount = parseFloat(editForm.amount); let updatedDateISO = '', updatedPaymentDateISO = null; try { const d = new Date(editForm.date + 'T12:00:00Z'); if (!editForm.date || isNaN(d.getTime())) throw new Error(); updatedDateISO = d.toISOString(); } catch { alert('Data da Transação inválida.'); return; } if (editForm.paymentMethod === 'credit' && editForm.paymentDate) { try { const d = new Date(editForm.paymentDate + 'T12:00:00Z'); if (isNaN(d.getTime())) throw new Error(); updatedPaymentDateISO = d.toISOString(); } catch { alert('Data de Pagamento inválida.'); return; } } else if (editForm.paymentMethod !== 'credit') { updatedPaymentDateISO = null; } if (editForm.description.trim() && !isNaN(parsedAmount) && parsedAmount >= 0) { onUpdateItem(id, { amount: parsedAmount, description: editForm.description.trim(), date: updatedDateISO, paymentDate: updatedPaymentDateISO, category: editForm.category || null }); handleEditCancel(); } else { alert('Verifique os campos ao editar.'); } };
@@ -379,8 +467,8 @@ const FinancialApp = () => {
 
                     {/* Footer (Gradient Adjusted on Name) */}
                     <footer className="app-footer">
-                         <p> Desenvolvido por
-                             {/* ** UPDATED Gradient: Replaced to-pink-500 with to-orange-400 ** */}
+                         {/* Added {' '} for explicit space and removed leading space from name */}
+                         <p> Desenvolvido por{' '}
                              <span className="developer-name animate-pulse from-cyan-400 via-purple-500 to-pink-500 bg-gradient-to-r bg-clip-text text-transparent">
                                 Wellington Beraldo
                              </span>
