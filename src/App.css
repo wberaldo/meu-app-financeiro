@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === Animations === */
+/* === Animations (Keep Original) === */
 @keyframes gradient {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -28,43 +28,73 @@
   font-family: 'Poppins', sans-serif;
 }
 
-/* === Component Styles === */
+/* === Component Styles (Mobile base, sm: for Desktop Original) === */
 @layer components {
-    /* ... (Other component styles remain the same) ... */
-    .input-label { @apply text-xs text-gray-400 mb-1 block; }
-    .input-base { @apply w-full bg-gray-800 border border-gray-700 rounded-md px-3 sm:px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 h-[42px]; }
-    .input-edit-base { @apply bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white text-sm w-full; }
-    .payment-btn-base { @apply px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-300 focus:outline-none h-[42px] flex items-center justify-center; }
+    /* Inputs & Buttons */
+    .input-label { @apply block text-xs font-medium text-gray-400 mb-1; } /* Mobile: font-medium */
+    /* Base input: mobile h-10/px-3, sm restores h-[42px]/sm:px-4 */
+    .input-base { @apply w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 h-10 sm:h-[42px] sm:px-4; }
+    /* Edit input: mobile xs/py-1, sm restores sm/py-1 */
+    .input-edit-base { @apply bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white text-xs w-full sm:text-sm; }
+    /* Payment Button: mobile h-10/xs/py-1.5, sm restores h-[42px]/sm/py-2 */
+    .payment-btn-base { @apply px-3 py-1.5 text-xs font-medium transition-all duration-300 focus:outline-none h-10 flex items-center justify-center sm:h-[42px] sm:py-2 sm:text-sm; }
     .payment-btn-inactive { @apply bg-gray-800 text-gray-400 hover:bg-gray-700; }
     .payment-btn-active { @apply text-white shadow-md; }
     .payment-btn-active.red { @apply bg-gradient-to-r from-red-500 to-pink-600 shadow-red-500/50; }
     .payment-btn-active.orange { @apply bg-gradient-to-r from-orange-500 to-yellow-600 shadow-orange-500/50; }
     .payment-btn-active.gray { @apply bg-gray-700; }
-    .add-button { @apply text-white font-medium rounded-md px-4 sm:px-6 py-2 text-sm transition-all duration-300 hover:shadow-lg self-end h-[42px] bg-gradient-to-r; }
-    .list-title { @apply text-base sm:text-lg font-medium text-gray-300 mt-8 mb-2 sm:mb-4; }
-    .list-subtitle { @apply text-xs text-gray-500 ml-2; }
-    .action-button { @apply text-xs sm:text-sm; }
-    .action-button.save { @apply text-green-400 hover:text-green-300 mr-2; }
+    /* Add button: mobile h-10/w-full, sm restores h-[42px]/self-end/w-auto/px-6 */
+    .add-button {
+      @apply w-full text-white font-medium rounded-md px-4 text-sm transition-all duration-300 hover:shadow-lg h-10 bg-gradient-to-r flex items-center justify-center /* Mobile: base height, full width, center content */
+             sm:h-[42px] sm:w-auto sm:px-6 sm:py-2 sm:self-end; /* Desktop: taller height, auto width, specific padding, end alignment */
+             /* Explicit sm:py-2 added for desktop */
+    }
+    /* Add this inside or after the @layer components block */
+    .chart-container-glow {
+      /* Adjust color and intensity as needed */
+      /* Example using a teal glow */
+      filter: drop-shadow(0 0 12px rgba(45, 212, 191, 0.3)); /* opacity 0.3 */
+      /* Example using a generic white/light glow */
+      /* filter: drop-shadow(0 0 10px rgba(200, 200, 255, 0.25)); */
+    }
+
+    /* Lists & Titles */
+    /* Title: mobile base/semibold/mt-6/mb-3, sm restores lg/medium/mt-8/mb-4 */
+    .list-title { @apply text-base font-semibold text-gray-300 mt-6 mb-3 sm:text-lg sm:font-medium sm:mt-8 sm:mb-4; }
+    /* Subtitle: mobile ml-1, sm restores ml-2 */
+    .list-subtitle { @apply text-xs text-gray-500 ml-1 sm:ml-2; }
+    /* Action Buttons: mobile xs/px-1.5, sm restores sm/px default */
+    .action-button { @apply text-xs px-1.5 py-0.5 sm:text-sm sm:px-0; } /* sm:px-0 removes mobile padding */
+    .action-button.save { @apply text-green-400 hover:text-green-300 mr-1 sm:mr-2; }
     .action-button.cancel { @apply text-gray-400 hover:text-gray-300; }
-    .action-button.edit { @apply text-blue-400 hover:text-blue-300 mr-2; }
+    .action-button.edit { @apply text-blue-400 hover:text-blue-300 mr-1 sm:mr-2; }
     .action-button.remove { @apply text-red-400 hover:text-red-300; }
-    .payment-method-badge { @apply flex-shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded; }
+
+    /* Badges & Misc */
+    /* Badge: mobile 10px, sm restores xs */
+    .payment-method-badge { @apply flex-shrink-0 text-[10px] font-semibold px-1 py-0.5 rounded sm:text-xs sm:px-1.5; }
     .payment-method-badge.credit { @apply bg-blue-600 text-blue-100; }
     .payment-method-badge.debit { @apply bg-yellow-600 text-yellow-100; }
-    .card-logo { @apply w-5 h-5 object-contain flex-shrink-0; }
-    .loading-screen { @apply min-h-screen bg-black flex items-center justify-center text-white text-xl animate-pulse; }
-    .status-bar { @apply text-center py-1 text-xs h-5; }
+    /* Card Logo: mobile w-4, sm restores w-5 */
+    .card-logo { @apply w-4 h-4 object-contain flex-shrink-0 sm:w-5 sm:h-5; }
+    /* Loading: mobile lg, sm restores xl */
+    .loading-screen { @apply min-h-screen bg-black flex items-center justify-center text-white text-lg sm:text-xl animate-pulse; }
+    /* Status Bar: mobile 10px, sm restores xs */
+    .status-bar { @apply text-center py-1 text-[10px] h-5 sm:text-xs; }
     .error-text { @apply text-red-500; }
     .saving-text { @apply text-yellow-400 animate-pulse; }
-    .profile-prompt { @apply text-center text-yellow-500 py-2 font-semibold text-sm; }
-    .loading-data { @apply text-center text-gray-400 py-10 animate-pulse; }
-    .no-profile-selected { @apply text-center text-gray-500 py-10; }
-    .app-footer { @apply text-center py-4 bg-gray-950 border-t border-gray-800 mt-auto text-sm font-medium text-gray-400; }
+    /* Profile Prompt: mobile xs, sm restores sm */
+    .profile-prompt { @apply text-center text-yellow-500 py-2 font-semibold text-xs sm:text-sm; }
+    /* Loading Data: mobile sm/py-8, sm restores base/py-10 */
+    .loading-data { @apply text-center text-gray-400 py-8 animate-pulse text-sm sm:py-10 sm:text-base; }
+    /* No Profile: mobile sm/py-8, sm restores base/py-10 */
+    .no-profile-selected { @apply text-center text-gray-500 py-8 text-sm sm:py-10 sm:text-base; }
+    /* Footer: mobile xs/py-3, sm restores sm/py-4 */
+    .app-footer { @apply text-center py-3 bg-gray-950 border-t border-gray-800 mt-auto text-xs font-medium text-gray-400 sm:text-sm sm:py-4; }
 
-    /* ** UPDATED Gradient for Developer Name ** */
+    /* Developer Name Gradient (Keep Original) */
     .developer-name {
-        @apply font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500; /* Changed to-pink-500 to to-orange-400 */
+        @apply font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500;
     }
 }
-
 /* --- END OF FILE App.css --- */

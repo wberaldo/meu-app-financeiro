@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css';
-import './App.css';
+import './index.css'; // Base styles + body background
+import './App.css';   // Component styles and Tailwind directives
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
