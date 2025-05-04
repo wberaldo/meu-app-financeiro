@@ -1,4 +1,4 @@
-// --- START OF FILE App.js ---
+/* --- START OF FILE App.js --- */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // Use the revised App.css which handles responsive styles
@@ -10,7 +10,7 @@ import {
 } from './firebase';
 
 // ** ADD Recharts import, including Sector and Legend **
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, Sector } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from 'recharts';
 
 // Assets (Original)
 import nubankLogo from './assets/cards/nubank.png';
@@ -25,7 +25,7 @@ const CARDS = {
 };
 const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const DEFAULT_CATEGORIES = [
-    'Salário', 'Rendimentos', 'Presente', 'Reembolso', 'Moradia', 'Alimentação', 'Supermercado', 'Transporte', 'Contas Fixas', 'Saúde', 'Educação', 'Lazer', 'Compras', 'Vestuário', 'Viagem', 'Impostos', 'Assinaturas', 'Cuidados Pessoais', 'Presentes/Doações', 'Investimentos (Saída)', 'Taxas Bancárias', 'Sem Categoria', 'Saldo Mês Anterior', 'Cartão de Crédito', 'Empréstimo', 'Financiamento', 'Seguro', 'Streaming', 'Internet', 'Combustível', 'Estacionamento', 'Farmácia'
+    'Salário', 'Freelance', 'Rendimentos', 'Presente', 'Reembolso', 'Outras Receitas', 'Moradia', 'Alimentação', 'Supermercado', 'Transporte', 'Contas Fixas', 'Saúde', 'Educação', 'Lazer', 'Restaurantes/Bares', 'Compras', 'Vestuário', 'Viagem', 'Impostos', 'Assinaturas', 'Cuidados Pessoais', 'Presentes/Doações', 'Investimentos (Saída)', 'Taxas Bancárias', 'Outras Despesas', 'Sem Categoria', 'Saldo Mês Anterior', 'Cartão de Crédito', 'Empréstimo', 'Financiamento', 'Seguro', 'Streaming', 'Internet', 'Combustível', 'Estacionamento'
   ];
 const INITIAL_TAB = localStorage.getItem('activeTab') || 'dashboard';
 const INITIAL_PROFILE = localStorage.getItem('selectedProfile') || null;
@@ -37,23 +37,50 @@ const generateYearOptions = (range = 5) => Array.from({ length: range * 2 + 1 },
 const toInputDateString = (date) => {
     if (!date) return '';
     try {
-        const d = (date instanceof Date) ? date : new Date(String(date).split('T')[0] + 'T12:00:00Z');
-        if (isNaN(d.getTime())) return '';
+        const dateStr = String(date).split('T')[0];
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+             return '';
+        }
+        const d = new Date(dateStr + 'T00:00:00Z');
+        if (isNaN(d.getTime())) {
+             return '';
+        }
         const year = d.getUTCFullYear();
         const month = String(d.getUTCMonth() + 1).padStart(2, '0');
         const day = String(d.getUTCDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
-    } catch {
-        console.error("Error in toInputDateString for date:", date);
+    } catch (err) {
+        console.error("Error in toInputDateString for date:", date, err);
         return '';
     }
 };
-const formatDateDisplay = (isoDateString) => { if (!isoDateString) return '---'; try { const date = new Date(String(isoDateString).split('T')[0] + 'T12:00:00Z'); if (isNaN(date.getTime())) return 'Inválida'; const day = String(date.getUTCDate()).padStart(2, '0'); const month = String(date.getUTCMonth() + 1).padStart(2, '0'); const year = date.getUTCFullYear(); return `${day}/${month}/${year}`; } catch { return 'Erro Data'; } };
+const formatDateDisplay = (isoDateString) => {
+    if (!isoDateString) return '---';
+    try {
+        const dateStr = String(isoDateString).split('T')[0];
+         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+             return 'Inválida';
+         }
+        const date = new Date(dateStr + 'T00:00:00Z');
+        if (isNaN(date.getTime())) {
+             return 'Inválida';
+        }
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (err) {
+        console.error("Error in formatDateDisplay:", isoDateString, err);
+        return 'Erro Data';
+    }
+};
 const getEffectiveDateForFiltering = (item) => {
     const parseDateSafeUTC = (dateString) => {
         if (!dateString) return null;
         try {
-            const d = new Date(String(dateString).split('T')[0] + 'T12:00:00Z');
+            const dateStr = String(dateString).split('T')[0];
+             if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+            const d = new Date(dateStr + 'T00:00:00Z');
             if (!isNaN(d.getTime())) return d;
         } catch {}
         return null;
@@ -71,7 +98,7 @@ const categorySorter = Intl.Collator(undefined, { sensitivity: 'base' }).compare
 
 // --- Child Components ---
 
-// ** AuthForm Component **
+// ** AuthForm Component ** (No Changes)
 const AuthForm = ({ onAuthSuccess }) => {
     const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [isLogin, setIsLogin] = useState(true); const [error, setError] = useState(''); const [loading, setLoading] = useState(false);
     const handleSubmit = async (e) => { e.preventDefault(); setError(''); setLoading(true); try { const userCredential = isLogin ? await logIn(email, password) : await signUp(email, password); if (!isLogin) await createInitialUserProfile(userCredential.user.uid); onAuthSuccess(userCredential.user); } catch (err) { setError(err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' ? 'Email ou senha inválidos.' : err.code === 'auth/email-already-in-use' ? 'Este email já está em uso.' : 'Ocorreu um erro. Tente novamente.'); console.error("Auth error:", err); } finally { setLoading(false); } };
@@ -93,7 +120,7 @@ const AuthForm = ({ onAuthSuccess }) => {
     );
 };
 
-// ** Header Component **
+// ** Header Component ** (No Changes)
 const Header = ({ user, profiles, selectedProfile, onSelectProfile, onCreateProfile, onLogout }) => {
     const [newProfileName, setNewProfileName] = useState('');
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -162,7 +189,7 @@ const Header = ({ user, profiles, selectedProfile, onSelectProfile, onCreateProf
     );
 };
 
-// ** Tabs Component **
+// ** Tabs Component ** (No Changes)
 const Tabs = ({ activeTab, setActiveTab }) => {
     const tabsConfig = [ { id: 'dashboard', label: 'Dashboard', color: 'cyan-blue' }, { id: 'income', label: 'Receitas', color: 'green-teal' }, { id: 'expenses', label: 'Despesas', color: 'red-pink' }, { id: 'recurring', label: 'Recorrentes', color: 'orange-yellow' }, ];
     const getTabClasses = (tabId, color) => { const isActive = activeTab === tabId; const colors = { 'cyan-blue': { active: 'from-cyan-400 to-blue-500 shadow-cyan-500/50', hover: 'text-cyan-400' }, 'green-teal': { active: 'from-green-400 to-teal-500 shadow-green-500/50', hover: 'text-green-400' }, 'red-pink': { active: 'from-red-400 to-pink-500 shadow-red-500/50', hover: 'text-red-400' }, 'orange-yellow': { active: 'from-orange-400 to-yellow-500 shadow-orange-500/50', hover: 'text-orange-400' }, }; const colorClasses = colors[color] || colors['cyan-blue'];
@@ -183,7 +210,7 @@ const Tabs = ({ activeTab, setActiveTab }) => {
     );
 };
 
-// ** MonthYearSelector Component **
+// ** MonthYearSelector Component ** (No Changes)
 const MonthYearSelector = ({ selectedMonth, selectedYear, setSelectedMonth, setSelectedYear }) => {
     const yearOptions = useMemo(() => generateYearOptions(), []);
     return (
@@ -217,7 +244,7 @@ const MonthYearSelector = ({ selectedMonth, selectedYear, setSelectedMonth, setS
 };
 
 
-// ** CardDropdown Component **
+// ** CardDropdown Component ** (No Changes)
 const CardDropdown = ({ cards, selectedCard, onSelectCard, baseColor = "gray" }) => {
     const [isOpen, setIsOpen] = useState(false); const colorClasses = { gray: { bg: 'bg-gray-800', border: 'border-gray-700', ring: 'focus:ring-gray-400', hoverBg: 'hover:bg-gray-700', dropdownBg: 'bg-gray-900' }, red: { bg: 'bg-red-800', border: 'border-red-700', ring: 'focus:ring-red-400', hoverBg: 'hover:bg-red-700', dropdownBg: 'bg-red-900' }, orange: { bg: 'bg-orange-800', border: 'border-orange-700', ring: 'focus:ring-orange-400', hoverBg: 'hover:bg-orange-700', dropdownBg: 'bg-orange-900' }, green: { bg: 'bg-green-800', border: 'border-green-700', ring: 'focus:ring-green-400', hoverBg: 'hover:bg-green-700', dropdownBg: 'bg-green-900' }, }; const currentColors = colorClasses[baseColor] || colorClasses.gray;
     useEffect(() => { const handleClickOutside = (event) => { if (isOpen && !event.target.closest('.card-dropdown-container')) setIsOpen(false); }; document.addEventListener('mousedown', handleClickOutside); return () => document.removeEventListener('mousedown', handleClickOutside); }, [isOpen]);
@@ -249,7 +276,7 @@ const CardDropdown = ({ cards, selectedCard, onSelectCard, baseColor = "gray" })
     );
 };
 
-// ** UPDATED DashboardView Component (Legend, External Labels) **
+// ** DashboardView Component ** (No Changes)
 const DashboardView = ({
     totals,
     balance,
@@ -317,6 +344,9 @@ const DashboardView = ({
         const xText = cx + radiusText * Math.cos(-midAngle * RADIAN);
         const yText = cy + radiusText * Math.sin(-midAngle * RADIAN);
         const textAnchor = xText > cx ? 'start' : 'end';
+
+        // Optional: Hide label if percentage is too small
+        // if (percent < 0.02) return null;
 
         return (
              <g>
@@ -393,16 +423,26 @@ const DashboardView = ({
     );
 };
 
-// ** TransactionTable Component **
+// ** TransactionTable Component ** (Corrected Footer Alignment)
 const TransactionTable = ({
     items, onRemove, onEditStart, onEditSave, onEditCancel, editingId, editForm, setEditForm, formatCurrency, formatDateDisplay, itemTypeColor = 'gray-300', allowEdit = true, showCard = false, cards = {}, showPaymentMethod = false, showDateColumn = false, showCategory = false, showPaymentDateColumn = false, sortConfig, onSortRequest, categories = [],
 }) => {
     const getSortIndicator = (columnKey) => { if (!sortConfig || sortConfig.key !== columnKey) return null; return sortConfig.direction === 'asc' ? ' ▲' : ' ▼'; };
     const getHeaderClasses = (columnKey) => { let c = `py-2 px-2 sm:py-3 sm:px-4 text-gray-400 font-medium text-[11px] sm:text-sm uppercase tracking-wider`; c += (columnKey === 'amount' || columnKey === 'actions') ? ' text-right' : ' text-left'; if (onSortRequest && ['date', 'paymentDate', 'description', 'category', 'amount'].includes(columnKey)) c += " cursor-pointer hover:text-white transition-colors"; return c; };
-    const calculateColspan = () => { let span = 1; if (showDateColumn) span++; if (showPaymentDateColumn) span++; if (showCategory) span++; return span; }
-    const totalColspan = calculateColspan();
+
+    const labelColspan = useMemo(() => {
+        let span = 0;
+        if (showDateColumn) span++;
+        if (showPaymentDateColumn) span++;
+        span++; // For Description column
+        if (showCategory) span++;
+        return span;
+    }, [showDateColumn, showPaymentDateColumn, showCategory]);
+
     const sortedCategories = useMemo(() => [...categories].sort(categorySorter), [categories]);
     const minWidths = { date: 'min-w-[75px] sm:min-w-[90px]', paymentDate: 'min-w-[75px] sm:min-w-[90px]', description: 'min-w-[150px] sm:min-w-[200px]', category: 'min-w-[100px] sm:min-w-[120px]', amount: 'min-w-[90px] sm:min-w-[100px]', actions: 'min-w-[100px]' };
+
+    const getEditFormValue = (key) => editForm?.[key] ?? '';
 
     return (
         <div className="overflow-x-auto mt-4 sm:mt-8 border border-gray-800 rounded-lg">
@@ -419,14 +459,14 @@ const TransactionTable = ({
                 </thead>
                 <tbody className="divide-y divide-gray-800">
                     {items.map((item) => {
-                        const isEditing = editingId === item.id;
+                        const isEditing = String(editingId) === String(item.id);
                         return (
-                            <tr key={item.id} className="hover:bg-gray-800/50 group text-xs sm:text-sm">
-                                {showDateColumn && <td className={`py-2 px-2 sm:py-3 sm:px-4 whitespace-nowrap ${minWidths.date}`}>{isEditing ? <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} className="input-edit-base" style={{ colorScheme: 'dark' }} /> : formatDateDisplay(item.date)}</td>}
-                                {showPaymentDateColumn && <td className={`py-2 px-2 sm:py-3 sm:px-4 whitespace-nowrap ${minWidths.paymentDate}`}>{isEditing ? ((editForm.paymentMethod === 'credit') ? <input type="date" value={editForm.paymentDate} onChange={(e) => setEditForm({ ...editForm, paymentDate: e.target.value })} className="input-edit-base" style={{ colorScheme: 'dark' }} /> : <span className="text-gray-600">N/A</span>) : (item.paymentMethod === 'credit' ? formatDateDisplay(item.paymentDate) : <span className="text-gray-600">N/A</span>)}</td>}
-                                <td className={`py-2 px-2 sm:py-3 sm:px-4 max-w-xs ${minWidths.description}`}>{isEditing ? <input type="text" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="input-edit-base w-full" /> : <div className="flex items-center space-x-1.5 sm:space-x-2"> {showPaymentMethod && item.paymentMethod && <span className={`payment-method-badge ${item.paymentMethod}`}>{item.paymentMethod === 'credit' ? 'C' : 'D'}</span>} {showCard && item.card && cards[item.card] && <img src={cards[item.card].logo} alt={cards[item.card].name} className="card-logo" title={cards[item.card].name} />} <span className="truncate group-hover:whitespace-normal group-hover:overflow-visible" title={item.description}>{item.description}</span> </div>}</td>
-                                {showCategory && <td className={`py-2 px-2 sm:py-3 sm:px-4 text-gray-400 whitespace-nowrap ${minWidths.category}`}>{isEditing ? (<select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="input-edit-base appearance-none w-full cursor-pointer"><option value="">-- Categoria --</option>{sortedCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>) : <span className="truncate">{item.category || '---'}</span>}</td>}
-                                <td className={`py-2 px-2 sm:py-3 sm:px-4 text-right font-medium text-${itemTypeColor} whitespace-nowrap ${minWidths.amount}`}>{isEditing ? <input type="number" step="0.01" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} className="input-edit-base w-20 sm:w-24 text-right" /> : formatCurrency(item.amount)}</td>
+                             <tr key={item.id} className="hover:bg-gray-800/50 group text-xs sm:text-sm">
+                                {showDateColumn && <td className={`py-2 px-2 sm:py-3 sm:px-4 whitespace-nowrap ${minWidths.date}`}>{isEditing ? <input type="date" value={getEditFormValue('date')} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} className="input-edit-base" style={{ colorScheme: 'dark' }} /> : formatDateDisplay(item.date)}</td>}
+                                {showPaymentDateColumn && <td className={`py-2 px-2 sm:py-3 sm:px-4 whitespace-nowrap ${minWidths.paymentDate}`}>{isEditing ? ((getEditFormValue('paymentMethod') === 'credit') ? <input type="date" value={getEditFormValue('paymentDate')} onChange={(e) => setEditForm({ ...editForm, paymentDate: e.target.value })} className="input-edit-base" style={{ colorScheme: 'dark' }} /> : <span className="text-gray-600">N/A</span>) : (item.paymentMethod === 'credit' ? formatDateDisplay(item.paymentDate) : <span className="text-gray-600">N/A</span>)}</td>}
+                                <td className={`py-2 px-2 sm:py-3 sm:px-4 max-w-xs ${minWidths.description}`}>{isEditing ? <input type="text" value={getEditFormValue('description')} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="input-edit-base w-full" /> : <div className="flex items-center space-x-1.5 sm:space-x-2"> {showPaymentMethod && item.paymentMethod && <span className={`payment-method-badge ${item.paymentMethod === 'credit' ? 'credit' : 'debit'}`}>{item.paymentMethod === 'credit' ? 'C' : 'D'}</span>} {showCard && item.card && cards[item.card] && <img src={cards[item.card].logo} alt={cards[item.card].name} className="card-logo" title={cards[item.card].name} />} <span className="truncate group-hover:whitespace-normal group-hover:overflow-visible" title={item.description}>{item.description}</span> </div>}</td>
+                                {showCategory && <td className={`py-2 px-2 sm:py-3 sm:px-4 text-gray-400 whitespace-nowrap ${minWidths.category}`}>{isEditing ? (<select value={getEditFormValue('category')} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="input-edit-base appearance-none w-full cursor-pointer"><option value="">-- Categoria --</option>{sortedCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>) : <span className="truncate">{item.category || '---'}</span>}</td>}
+                                <td className={`py-2 px-2 sm:py-3 sm:px-4 text-right font-medium text-${itemTypeColor} whitespace-nowrap ${minWidths.amount}`}>{isEditing ? <input type="number" step="0.01" value={getEditFormValue('amount')} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} className="input-edit-base w-20 sm:w-24 text-right" /> : formatCurrency(item.amount)}</td>
                                 {allowEdit && (
                                      <td className={`py-2 px-2 sm:py-3 sm:px-4 text-right whitespace-nowrap ${minWidths.actions}`}>
                                         {isEditing ? (
@@ -443,9 +483,18 @@ const TransactionTable = ({
                                     </td>
                                 )}
                             </tr>
-                        );
+                         );
                     })}
-                    {items.length > 0 && (<tr className="bg-gray-800/50 font-semibold text-xs sm:text-sm"><td colSpan={totalColspan + 1} className="py-2 px-2 sm:py-3 sm:px-4">Total</td><td className={`py-2 px-2 sm:py-3 sm:px-4 text-right font-bold text-${itemTypeColor}`}>{formatCurrency(items.reduce((acc, item) => acc + (item.amount || 0), 0))}</td>{allowEdit && <td></td>}</tr>)}
+                    {/* Footer row */}
+                    {items.length > 0 && (
+                        <tr className="bg-gray-800/50 font-semibold text-xs sm:text-sm">
+                            <td colSpan={labelColspan} className="py-2 px-2 sm:py-3 sm:px-4 text-left">Total</td>
+                            <td className={`py-2 px-2 sm:py-3 sm:px-4 text-right font-bold text-${itemTypeColor}`}>
+                                {formatCurrency(items.reduce((acc, item) => acc + (Number(item.amount) || 0), 0))}
+                            </td>
+                            {allowEdit && <td></td>}
+                        </tr>
+                    )}
                 </tbody>
             </table>
             {items.length === 0 && !editingId && (<p className="text-gray-500 italic text-center py-6 sm:py-4 text-xs sm:text-sm">Nenhum item para exibir.</p>)}
@@ -453,20 +502,99 @@ const TransactionTable = ({
     );
 };
 
-// ** TransactionSection Component **
+
+// ** TransactionSection Component ** (No functional changes)
 const TransactionSection = ({
-    title, items, fullList, onAddItem, onRemoveItem, onUpdateItem, itemTypeColor, baseColor, showCardOption = false, cards = {}, categories = [], isRecurring = false, formatCurrency, formatDateDisplay, selectedMonth, selectedYear
+    title, items, fullList,
+    onAddItem, onRemoveItem, onUpdateItem,
+    removeInstallmentGroup, updateInstallmentGroup,
+    itemTypeColor, baseColor,
+    showCardOption = false, cards = {}, categories = [],
+    isRecurring = false,
+    formatCurrency, formatDateDisplay,
+    selectedMonth, selectedYear,
 }) => {
     const [amount, setAmount] = useState(''); const [description, setDescription] = useState(''); const [transactionDate, setTransactionDate] = useState(''); const [paymentDate, setPaymentDate] = useState(''); const [category, setCategory] = useState(''); const [selectedCard, setSelectedCard] = useState(''); const [paymentMethod, setPaymentMethod] = useState( (baseColor === 'green') ? 'deposit' : 'credit' );
     useEffect(() => { const today = new Date(); const currentMonth = today.getMonth(); const currentYear = today.getFullYear(); let targetDate; if (selectedMonth === currentMonth && selectedYear === currentYear) { targetDate = new Date(currentYear, currentMonth, today.getDate(), 12, 0, 0); } else { targetDate = new Date(selectedYear, selectedMonth, 1, 12, 0, 0); } const initialDateValue = toInputDateString(targetDate); setTransactionDate(initialDateValue); setPaymentDate(''); }, [selectedMonth, selectedYear]);
-    const [sortConfig, setSortConfig] = useState({ key: 'effectiveDate', direction: 'desc' }); const [editingId, setEditingId] = useState(null); const [editForm, setEditForm] = useState({ amount: '', description: '', date: '', paymentDate: '', category: '', paymentMethod: '' });
+    const [sortConfig, setSortConfig] = useState({ key: 'effectiveDate', direction: 'desc' });
+    const [editingId, setEditingId] = useState(null);
+    const [editForm, setEditForm] = useState({ amount: '', description: '', date: '', paymentDate: '', category: '', paymentMethod: '', card: null });
     const resetForm = useCallback(() => { setAmount(''); setDescription(''); setCategory(''); setSelectedCard(''); setPaymentMethod((baseColor === 'green') ? 'deposit' : 'credit'); const today = new Date(); const currentMonth = today.getMonth(); const currentYear = today.getFullYear(); let targetDate; if (selectedMonth === currentMonth && selectedYear === currentYear) { targetDate = new Date(currentYear, currentMonth, today.getDate(), 12, 0, 0); } else { targetDate = new Date(selectedYear, selectedMonth, 1, 12, 0, 0); } const initialDateValue = toInputDateString(targetDate); setTransactionDate(initialDateValue); setPaymentDate(''); }, [baseColor, selectedMonth, selectedYear]);
     const handleSortRequest = (key) => { let direction = 'asc'; if (sortConfig.key === key && sortConfig.direction === 'asc') { direction = 'desc'; }; const sortKey = (key === 'date' || key === 'paymentDate') ? key : 'effectiveDate'; setSortConfig({ key: sortKey, direction }); };
-    const handleAdd = () => { const parsedAmount = parseFloat(amount); let itemDateISO = '', itemPaymentDateISO = null; try { const d = new Date(transactionDate + 'T12:00:00Z'); if (!transactionDate || isNaN(d.getTime())) throw new Error(); itemDateISO = d.toISOString(); } catch { alert('Data da Transação inválida.'); return; } if (paymentMethod === 'credit' && paymentDate) { try { const d = new Date(paymentDate + 'T12:00:00Z'); if (isNaN(d.getTime())) throw new Error(); itemPaymentDateISO = d.toISOString(); } catch { alert('Data de Pagamento inválida.'); return; } } if (description.trim() && !isNaN(parsedAmount) && parsedAmount > 0 && itemDateISO) { onAddItem({ amount: parsedAmount, description: description.trim(), date: itemDateISO, paymentDate: itemPaymentDateISO, category: category || null, paymentMethod: (baseColor === 'green') ? undefined : paymentMethod, card: showCardOption ? (selectedCard || null) : undefined }); resetForm(); } else { alert('Preencha Valor (>0), Descrição e Data da Transação válidos.'); } };
-    const handleEditStart = (item) => { setEditingId(item.id); setEditForm({ amount: item.amount ?? '', description: item.description ?? '', date: toInputDateString(item.date), paymentDate: toInputDateString(item.paymentDate), category: item.category || '', paymentMethod: item.paymentMethod || ((baseColor === 'green') ? 'deposit' : 'credit') }); };
-    const handleEditSave = (id) => { const parsedAmount = parseFloat(editForm.amount); let updatedDateISO = '', updatedPaymentDateISO = null; try { const d = new Date(editForm.date + 'T12:00:00Z'); if (!editForm.date || isNaN(d.getTime())) throw new Error(); updatedDateISO = d.toISOString(); } catch { alert('Data da Transação inválida.'); return; } if (editForm.paymentMethod === 'credit' && editForm.paymentDate) { try { const d = new Date(editForm.paymentDate + 'T12:00:00Z'); if (isNaN(d.getTime())) throw new Error(); updatedPaymentDateISO = d.toISOString(); } catch { alert('Data de Pagamento inválida.'); return; } } else if (editForm.paymentMethod !== 'credit') { updatedPaymentDateISO = null; } if (editForm.description.trim() && !isNaN(parsedAmount) && parsedAmount >= 0 && updatedDateISO) { const updatedData = { amount: parsedAmount, description: editForm.description.trim(), date: updatedDateISO, paymentDate: updatedPaymentDateISO, category: editForm.category || null, paymentMethod: editForm.paymentMethod }; onUpdateItem(id, updatedData); handleEditCancel(); } else { alert('Verifique os campos ao editar (Valor >= 0, Descrição, Data da Transação).'); } };
-    const handleEditCancel = () => { setEditingId(null); setEditForm({ amount: '', description: '', date: '', paymentDate: '', category: '', paymentMethod: '' }); };
-    const sortedItems = useMemo(() => { const itemsToSort = items || []; return [...itemsToSort].sort((a, b) => { let valA, valB; if (sortConfig.key === 'effectiveDate') { const effA = getEffectiveDateForFiltering(a); const effB = getEffectiveDateForFiltering(b); valA = effA ? effA.getTime() : (sortConfig.direction === 'asc' ? Infinity : -Infinity); valB = effB ? effB.getTime() : (sortConfig.direction === 'asc' ? Infinity : -Infinity); } else if (sortConfig.key === 'date' || sortConfig.key === 'paymentDate') { const dateA = a[sortConfig.key] ? new Date(String(a[sortConfig.key]).split('T')[0] + 'T12:00:00Z').getTime() : null; const dateB = b[sortConfig.key] ? new Date(String(b[sortConfig.key]).split('T')[0] + 'T12:00:00Z').getTime() : null; valA = dateA && !isNaN(dateA) ? dateA : (sortConfig.direction === 'asc' ? Infinity : -Infinity); valB = dateB && !isNaN(dateB) ? dateB : (sortConfig.direction === 'asc' ? Infinity : -Infinity); } else if (sortConfig.key === 'amount') { valA = a.amount || 0; valB = b.amount || 0; } else { valA = String(a[sortConfig.key] || '').toLowerCase(); valB = String(b[sortConfig.key] || '').toLowerCase(); const comparison = valA.localeCompare(valB); return sortConfig.direction === 'asc' ? comparison : -comparison; } if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }, [items, sortConfig]);
+    const handleAdd = () => { const parsedAmount = parseFloat(amount); let itemDateISO = '', itemPaymentDateISO = null; try { const d = new Date(transactionDate + 'T00:00:00Z'); if (!transactionDate || isNaN(d.getTime())) throw new Error("Invalid transaction date"); itemDateISO = d.toISOString(); } catch(e) { console.error(e); alert('Data da Transação inválida.'); return; } if (paymentMethod === 'credit' && paymentDate) { try { const d = new Date(paymentDate + 'T00:00:00Z'); if (isNaN(d.getTime())) throw new Error("Invalid payment date"); itemPaymentDateISO = d.toISOString(); } catch(e) { console.error(e); alert('Data de Pagamento inválida.'); return; } } if (description.trim() && !isNaN(parsedAmount) && parsedAmount > 0 && itemDateISO) { onAddItem({ amount: parsedAmount, description: description.trim(), date: itemDateISO, paymentDate: itemPaymentDateISO, category: category || null, paymentMethod: (baseColor === 'green') ? undefined : paymentMethod, card: showCardOption ? (selectedCard || null) : undefined }); resetForm(); } else { alert('Preencha Valor (>0), Descrição e Data da Transação válidos.'); } };
+    const handleEditStart = (item) => {
+        setEditingId(item.id);
+        setEditForm({
+            amount: item.amount ?? '',
+            description: item.description ?? '',
+            date: toInputDateString(item.date),
+            paymentDate: toInputDateString(item.paymentDate),
+            category: item.category || '',
+            paymentMethod: item.paymentMethod || ((baseColor === 'green') ? 'deposit' : 'credit'),
+            card: item.card || null
+        });
+    };
+    const handleEditSave = (id) => {
+        const originalItem = (fullList || []).find(i => String(i.id) === String(id));
+
+        if (!originalItem) {
+            console.error("[handleEditSave Error] Item original não encontrado para salvar. ID:", id);
+            handleEditCancel();
+            return;
+        }
+
+        const parsedAmount = parseFloat(editForm.amount);
+        let updatedDateISO = '', updatedPaymentDateISO = null;
+
+        try {
+            const d = new Date(editForm.date + 'T00:00:00Z');
+            if (!editForm.date || isNaN(d.getTime())) throw new Error("Invalid transaction date in form");
+            updatedDateISO = d.toISOString();
+        } catch (e) { console.error(e); alert('Data da Transação inválida.'); return; }
+
+        if (editForm.paymentMethod === 'credit' && editForm.paymentDate) {
+             try {
+                 const d = new Date(editForm.paymentDate + 'T00:00:00Z');
+                 if (isNaN(d.getTime())) throw new Error("Invalid payment date in form");
+                 updatedPaymentDateISO = d.toISOString();
+             } catch (e) { console.error(e); alert('Data de Pagamento inválida.'); return; }
+        } else if (editForm.paymentMethod !== 'credit') {
+             updatedPaymentDateISO = null;
+        }
+
+        if (editForm.description.trim() && !isNaN(parsedAmount) && parsedAmount >= 0 && updatedDateISO) {
+            const updatedFields = {
+                amount: parsedAmount,
+                description: editForm.description.trim(),
+                date: updatedDateISO,
+                paymentDate: updatedPaymentDateISO,
+                category: editForm.category || null,
+                paymentMethod: editForm.paymentMethod,
+                card: editForm.card ?? null
+            };
+
+            const groupId = originalItem.installmentInfo?.groupId ?? originalItem.groupId;
+
+            if (originalItem.isInstallment && groupId && updateInstallmentGroup) {
+                updateInstallmentGroup(groupId, id, updatedFields);
+            } else if (!isRecurring && onUpdateItem) {
+                onUpdateItem(id, updatedFields);
+            } else if (isRecurring && onUpdateItem) {
+                 onUpdateItem(id, updatedFields);
+            } else {
+                 console.error("[handleEditSave Critical Error] No update path determined!");
+            }
+
+            handleEditCancel();
+        } else {
+            alert('Verifique os campos ao editar (Valor >= 0, Descrição, Data da Transação).');
+        }
+    };
+    const handleEditCancel = () => {
+        setEditingId(null);
+        setEditForm({ amount: '', description: '', date: '', paymentDate: '', category: '', paymentMethod: '', card: null });
+    };
+    const sortedItems = useMemo(() => { const itemsToSort = items || []; return [...itemsToSort].sort((a, b) => { let valA, valB; if (sortConfig.key === 'effectiveDate') { const effA = getEffectiveDateForFiltering(a); const effB = getEffectiveDateForFiltering(b); valA = effA ? effA.getTime() : (sortConfig.direction === 'asc' ? Infinity : -Infinity); valB = effB ? effB.getTime() : (sortConfig.direction === 'asc' ? Infinity : -Infinity); } else if (sortConfig.key === 'date' || sortConfig.key === 'paymentDate') { const dateA = a[sortConfig.key] ? new Date(String(a[sortConfig.key]).split('T')[0] + 'T00:00:00Z').getTime() : null; const dateB = b[sortConfig.key] ? new Date(String(b[sortConfig.key]).split('T')[0] + 'T00:00:00Z').getTime() : null; valA = dateA && !isNaN(dateA) ? dateA : (sortConfig.direction === 'asc' ? Infinity : -Infinity); valB = dateB && !isNaN(dateB) ? dateB : (sortConfig.direction === 'asc' ? Infinity : -Infinity); } else if (sortConfig.key === 'amount') { valA = a.amount || 0; valB = b.amount || 0; } else { valA = String(a[sortConfig.key] || '').toLowerCase(); valB = String(b[sortConfig.key] || '').toLowerCase(); const comparison = valA.localeCompare(valB); return sortConfig.direction === 'asc' ? comparison : -comparison; } if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }, [items, sortConfig]);
     const formColorClasses = { gray: { border: 'border-gray-700', ring: 'focus:ring-gray-400' }, green: { border: 'border-green-700', ring: 'focus:ring-green-400' }, red: { border: 'border-red-700', ring: 'focus:ring-red-400' }, orange: { border: 'border-orange-700', ring: 'focus:ring-orange-400' }, }; const currentFormColors = formColorClasses[baseColor] || formColorClasses.gray; const buttonGradientClasses = { green: 'from-green-400 to-teal-500 hover:shadow-green-500/50', red: 'from-red-400 to-pink-500 hover:shadow-red-500/50', orange: 'from-orange-400 to-yellow-500 hover:shadow-orange-500/50', }; const currentButtonGradient = buttonGradientClasses[baseColor] || 'from-gray-400 to-gray-600';
     const getPaymentMethodButtonClasses = (method) => { const isActive = paymentMethod === method; const styles = { red: { active: 'payment-btn-active red', inactive: 'payment-btn-inactive' }, orange: { active: 'payment-btn-active orange', inactive: 'payment-btn-inactive' }, default: { active: 'payment-btn-active gray', inactive: 'payment-btn-inactive' } }; const themeStyles = styles[baseColor] || styles.default; return `payment-btn-base ${isActive ? themeStyles.active : themeStyles.inactive}`; }; const showPaymentDateField = baseColor !== 'green' && paymentMethod === 'credit'; const sortedCategories = useMemo(() => [...categories].sort(categorySorter), [categories]);
 
@@ -474,6 +602,7 @@ const TransactionSection = ({
         <div className={`bg-gray-900 rounded-xl p-3 sm:p-6 border-2 border-${baseColor}-400 shadow-lg shadow-${baseColor}-500/20 mb-4 sm:mb-8`}>
             <h2 className={`text-base sm:text-xl font-semibold text-${baseColor}-400 mb-4 sm:mb-6`}>{title}</h2>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-3 sm:gap-y-5 mb-4 sm:mb-6 items-end">
+                 {/* Form Inputs */}
                  <div> <label htmlFor={`${baseColor}-amount`} className="input-label">Valor (*)</label> <input id={`${baseColor}-amount`} type="number" placeholder="0.00" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className={`input-base ${currentFormColors.border} ${currentFormColors.ring}`} /> </div>
                  <div> <label htmlFor={`${baseColor}-description`} className="input-label">Descrição (*)</label> <input id={`${baseColor}-description`} type="text" placeholder="Descrição da transação" value={description} onChange={(e) => setDescription(e.target.value)} required className={`input-base ${currentFormColors.border} ${currentFormColors.ring}`} /> </div>
                  <div> <label htmlFor={`${baseColor}-date`} className="input-label">Data Transação (*)</label> <input id={`${baseColor}-date`} type="date" value={transactionDate} onChange={(e) => setTransactionDate(e.target.value)} required className={`input-base appearance-none ${currentFormColors.border} ${currentFormColors.ring}`} style={{ colorScheme: 'dark' }} /> </div>
@@ -487,16 +616,28 @@ const TransactionSection = ({
                  </div>
                  {baseColor !== 'green' && ( <div> <label className="input-label">Tipo</label> <div className="flex rounded-md overflow-hidden border border-gray-700"> <button type="button" onClick={() => setPaymentMethod('credit')} className={`${getPaymentMethodButtonClasses('credit')} rounded-l-md flex-1`}>Crédito</button> <button type="button" onClick={() => setPaymentMethod('debit')} className={`${getPaymentMethodButtonClasses('debit')} rounded-r-md flex-1`}>Débito</button> </div> </div> )}
                  {showPaymentDateField && ( <div> <label htmlFor={`${baseColor}-paymentDate`} className="input-label">Data Pagamento</label> <input id={`${baseColor}-paymentDate`} type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={`input-base appearance-none ${currentFormColors.border} ${currentFormColors.ring}`} style={{ colorScheme: 'dark' }} /> </div> )}
-                 {showCardOption && ( <div> <label className="input-label">Cartão</label> <CardDropdown cards={cards} selectedCard={selectedCard} onSelectCard={setSelectedCard} baseColor={baseColor} /> </div> )}
+                 {showCardOption && ( <div> <label className="input-label">Cartão</label> <CardDropdown cards={cards} selectedCard={editForm.id === editingId ? editForm.card : selectedCard} onSelectCard={editForm.id === editingId ? (c) => setEditForm({...editForm, card: c}) : setSelectedCard} baseColor={baseColor} /> </div> )}
                  <div className="lg:col-start-4 flex items-end">
                      <button onClick={handleAdd} className={`add-button w-full ${currentButtonGradient}`}> Adicionar </button>
                  </div>
             </div>
-            {baseColor === 'red' && !isRecurring && <InstallmentSection onAddInstallment={onAddItem} baseColor={baseColor} selectedMonth={selectedMonth} selectedYear={selectedYear} />}
+            {/* Installment Section */}
+            {baseColor === 'red' && !isRecurring &&
+                <InstallmentSection
+                    onAddItem={onAddItem}
+                    baseColor={baseColor}
+                    selectedMonth={selectedMonth}
+                    selectedYear={selectedYear}
+                    cards={cards}
+                />}
             <h3 className="list-title"> {isRecurring ? "Itens Registrados" : `Considerados em ${MONTH_NAMES[selectedMonth]} de ${selectedYear}`} <span className="list-subtitle">{!isRecurring && "(Baseado na Data de Pagamento para Crédito)"}</span> </h3>
-            <TransactionTable
+            {/* Main Transaction Table */}
+             <TransactionTable
                 items={sortedItems}
-                onRemove={onRemoveItem} onEditStart={handleEditStart} onEditSave={handleEditSave} onEditCancel={handleEditCancel}
+                onRemove={onRemoveItem}
+                onEditStart={handleEditStart}
+                onEditSave={handleEditSave}
+                onEditCancel={handleEditCancel}
                 editingId={editingId} editForm={editForm} setEditForm={setEditForm}
                 formatCurrency={formatCurrency} formatDateDisplay={formatDateDisplay}
                 itemTypeColor={itemTypeColor} allowEdit={true}
@@ -508,33 +649,146 @@ const TransactionSection = ({
                 sortConfig={sortConfig} onSortRequest={handleSortRequest}
                 categories={categories}
             />
+            {/* Installment List */}
             {baseColor === 'red' && !isRecurring && (
                 <InstallmentList
                     installments={fullList?.filter(i => i.isInstallment) ?? []}
                     selectedMonth={selectedMonth} selectedYear={selectedYear}
                     formatCurrency={formatCurrency} formatDateDisplay={formatDateDisplay}
-                    onRemoveInstallment={onRemoveItem}
-                    itemTypeColor={itemTypeColor} showPaymentMethod={true}
-                    showDateColumn={true} showCategory={true}
+                    onRemoveInstallmentGroup={removeInstallmentGroup}
+                    onEditInstallmentStart={handleEditStart}
+                    editingId={editingId}
+                    editForm={editForm}
+                    setEditForm={setEditForm}
+                    onEditInstallmentSave={handleEditSave}
+                    onEditInstallmentCancel={handleEditCancel}
+                    categories={categories}
+                    itemTypeColor={itemTypeColor}
+                    showPaymentMethod={true}
+                    showDateColumn={true}
+                    showCategory={true}
+                    showCard={true}
+                    cards={cards}
                  />
              )}
         </div>
     );
 };
 
-// ** InstallmentSection Component **
-const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, selectedYear }) => {
-    const [totalAmount, setTotalAmount] = useState(''); const [description, setDescription] = useState(''); const [months, setMonths] = useState(2);
-    const handleAddInstallment = () => { const pa = parseFloat(totalAmount); const nm = parseInt(months); if (description.trim() && !isNaN(pa) && pa > 0 && !isNaN(nm) && nm >= 2) { const ia = Math.round((pa / nm) * 100) / 100; const fDate = new Date(selectedYear, selectedMonth, 1); const gId = `inst-${Date.now()}`; for (let i = 0; i < nm; i++) { const date = new Date(fDate); date.setMonth(fDate.getMonth() + i); onAddInstallment({ amount: ia, description: `${description.trim()} (${i + 1}/${nm})`, date: date.toISOString(), isInstallment: true, paymentMethod: 'credit', category: 'Parcelamento', installmentInfo: { groupId: gId, totalAmount: pa, totalMonths: nm, currentInstallment: i + 1, purchaseDate: fDate.toISOString() } }); } setTotalAmount(''); setDescription(''); setMonths(2); } else { alert('Insira Valor Total (>0), Descrição e Nº Parcelas (>=2).'); } };
-    const formColors = { border: 'border-red-700', ring: 'focus:ring-red-400' }; const btnGradient = 'from-red-400 to-pink-500 hover:shadow-red-500/50';
+// ** InstallmentSection Component ** (Re-added Card Selection, Corrected Date Logic)
+const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear, cards }) => {
+    const [totalAmount, setTotalAmount] = useState('');
+    const [description, setDescription] = useState('');
+    const [months, setMonths] = useState(2);
+    const [firstInstallmentDate, setFirstInstallmentDate] = useState('');
+    const [selectedCard, setSelectedCard] = useState(null);
+
+    // Effect to initialize/update the first installment date
+    useEffect(() => {
+        const defaultDate = new Date(Date.UTC(selectedYear, selectedMonth, 1));
+        setFirstInstallmentDate(toInputDateString(defaultDate));
+    }, [selectedMonth, selectedYear]);
+
+    const handleAddInstallment = () => {
+        const pa = parseFloat(totalAmount);
+        const nm = parseInt(months);
+
+        if (!firstInstallmentDate) {
+            alert('Por favor, selecione a data da primeira parcela.');
+            return;
+        }
+
+        let firstPaymentDateUTC;
+        try {
+            firstPaymentDateUTC = new Date(firstInstallmentDate + 'T00:00:00Z');
+            if (isNaN(firstPaymentDateUTC.getTime())) throw new Error();
+        } catch (e) {
+            alert('Data da primeira parcela inválida.');
+            return;
+        }
+
+        if (description.trim() && !isNaN(pa) && pa > 0 && !isNaN(nm) && nm >= 2) {
+            const ia = Math.round((pa / nm) * 100) / 100;
+            const purchaseTimestamp = new Date().toISOString();
+            const installmentGroupId = `inst-${Date.now()}`;
+            const targetPaymentDay = firstPaymentDateUTC.getUTCDate();
+
+            for (let i = 0; i < nm; i++) {
+                const targetMonthStartDate = new Date(firstPaymentDateUTC);
+                targetMonthStartDate.setUTCMonth(firstPaymentDateUTC.getUTCMonth() + i);
+                const targetYear = targetMonthStartDate.getUTCFullYear();
+                const targetMonth = targetMonthStartDate.getUTCMonth();
+                const lastDayOfMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+                const installmentDay = Math.min(targetPaymentDay, lastDayOfMonth);
+                const currentInstallmentDateISO = new Date(Date.UTC(targetYear, targetMonth, installmentDay)).toISOString();
+
+                const installmentItem = {
+                    amount: ia,
+                    description: `${description.trim()} (${i + 1}/${nm})`,
+                    date: currentInstallmentDateISO,
+                    paymentDate: currentInstallmentDateISO,
+                    isInstallment: true,
+                    paymentMethod: 'credit',
+                    category: 'Parcelamento',
+                    card: selectedCard || null,
+                    installmentInfo: {
+                        groupId: installmentGroupId,
+                        totalAmount: pa,
+                        totalMonths: nm,
+                        currentInstallment: i + 1,
+                        purchaseDate: purchaseTimestamp
+                    }
+                };
+                onAddItem(installmentItem);
+            }
+            // Reset form
+            setTotalAmount('');
+            setDescription('');
+            setMonths(2);
+            setSelectedCard(null);
+            const defaultDate = new Date(Date.UTC(selectedYear, selectedMonth, 1));
+            setFirstInstallmentDate(toInputDateString(defaultDate));
+
+        } else { alert('Insira Valor Total (>0), Descrição, Nº Parcelas (>=2) e Data da 1ª Parcela válidos.'); }
+    };
+    const formColors = { border: 'border-red-700', ring: 'focus:ring-red-400' };
+    const btnGradient = 'from-red-400 to-pink-500 hover:shadow-red-500/50';
+
     return (
         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-700/50 sm:border-gray-700">
             <h3 className={`text-sm sm:text-lg font-semibold text-${baseColor}-400 mb-4 sm:mb-6`}>Adicionar Compra Parcelada</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-3 sm:gap-y-5 mb-4 sm:mb-6 items-end">
+             {/* *** UPDATED GRID: Use 4 columns on large screens for consistency *** */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-3 sm:gap-y-5 mb-4 sm:mb-6 items-end">
+                 {/* Row 1 (lg) */}
                  <div> <label htmlFor="inst-amount" className="input-label">Valor Total (*)</label> <input id="inst-amount" type="number" placeholder="1200.00" step="0.01" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} required className={`input-base ${formColors.border} ${formColors.ring}`} /> </div>
                  <div> <label htmlFor="inst-description" className="input-label">Descrição (*)</label> <input id="inst-description" type="text" placeholder="Ex: Celular Novo" value={description} onChange={e => setDescription(e.target.value)} required className={`input-base ${formColors.border} ${formColors.ring}`} /> </div>
-                 <div> <label htmlFor="inst-months" className="input-label">Nº Parcelas (*)</label> <input id="inst-months" type="number" min="2" step="1" placeholder="Ex: 12" value={months} onChange={e => setMonths(parseInt(e.target.value) || 2)} required className={`input-base ${formColors.border} ${formColors.ring}`} /> </div>
-                 <div className="lg:col-start-4 flex items-end">
+                 <div> <label htmlFor="inst-months" className="input-label">Nº Parcelas (*)</label> <input id="inst-months" type="number" min="2" step="1" placeholder="12" value={months} onChange={e => setMonths(parseInt(e.target.value) || 2)} required className={`input-base ${formColors.border} ${formColors.ring}`} /> </div>
+                 <div>
+                     <label htmlFor="inst-first-date" className="input-label">Data 1ª Parcela (*)</label>
+                     <input
+                        id="inst-first-date"
+                        type="date"
+                        value={firstInstallmentDate}
+                        onChange={e => setFirstInstallmentDate(e.target.value)}
+                        required
+                        className={`input-base appearance-none ${formColors.border} ${formColors.ring}`}
+                        style={{ colorScheme: 'dark' }}
+                     />
+                 </div>
+                 {/* Row 2 (lg) */}
+                 {/* Card dropdown now takes the first column on the second row (lg) */}
+                 <div>
+                     <label className="input-label">Cartão (Opcional)</label>
+                     <CardDropdown
+                        cards={cards}
+                        selectedCard={selectedCard}
+                        onSelectCard={setSelectedCard}
+                        baseColor="red"
+                     />
+                 </div>
+                 {/* Button aligned to the end (4th column on lg) */}
+                 {/* *** UPDATED GRID POSITIONING FOR BUTTON *** */}
+                 <div className="sm:col-start-2 lg:col-start-4 flex items-end"> {/* Aligns button to the last column on lg, and second column on sm */}
                      <button onClick={handleAddInstallment} className={`add-button w-full ${btnGradient}`}> Parcelar </button>
                  </div>
             </div>
@@ -542,37 +796,65 @@ const InstallmentSection = ({ onAddInstallment, baseColor, selectedMonth, select
      );
 };
 
-// ** InstallmentList Component **
+// ** InstallmentList Component ** (No functional changes)
 const InstallmentList = ({
-    installments, selectedMonth, selectedYear, formatCurrency, formatDateDisplay, onRemoveInstallment, itemTypeColor, showPaymentMethod = false, showDateColumn = false, showCategory = false,
+    installments, selectedMonth, selectedYear, formatCurrency, formatDateDisplay,
+    onRemoveInstallmentGroup, onEditInstallmentStart,
+    itemTypeColor, showPaymentMethod = false, showDateColumn = false,
+    showCategory = false, showCard = false, cards = {},
+    editingId, editForm, setEditForm,
+    onEditInstallmentSave, onEditInstallmentCancel,
+    categories = []
 }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'asc' });
     const handleSortRequest = (key) => { let d = 'asc'; if (sortConfig.key === key && sortConfig.direction === 'asc') d = 'desc'; setSortConfig({ key, direction: d }); };
-    const displayInstallments = useMemo(() => { const filtered = (installments || []).filter(item => { if (!item.date || !item.isInstallment) return false; try { const d = new Date(String(item.date).split('T')[0] + 'T12:00:00Z'); return !isNaN(d.getTime()) && d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear; } catch { return false; } }); return [...filtered].sort((a, b) => { let vA = a[sortConfig.key], vB = b[sortConfig.key]; if (sortConfig.key === 'date') { try { vA = new Date(String(a.date||0).split('T')[0] + 'T12:00:00Z').getTime(); vB = new Date(String(b.date||0).split('T')[0] + 'T12:00:00Z').getTime(); vA=isNaN(vA)?(sortConfig.direction==='asc'?Infinity:-Infinity):vA; vB=isNaN(vB)?(sortConfig.direction==='asc'?Infinity:-Infinity):vB;} catch{vA=Infinity;vB=Infinity;} } else if (sortConfig.key === 'amount'){ vA=a.amount||0; vB=b.amount||0; } else { vA=String(vA||'').toLowerCase(); vB=String(vB||'').toLowerCase(); const comp = vA.localeCompare(vB); return sortConfig.direction === 'asc' ? comp : -comp; } if (vA < vB) return sortConfig.direction === 'asc' ? -1 : 1; if (vA > vB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }, [installments, selectedMonth, selectedYear, sortConfig]);
+    const displayInstallments = useMemo(() => { const filtered = (installments || []).filter(item => { if (!item.date || !item.isInstallment) return false; try { const d = new Date(String(item.date).split('T')[0] + 'T00:00:00Z'); return !isNaN(d.getTime()) && d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear; } catch { return false; } }); return [...filtered].sort((a, b) => { let vA = a[sortConfig.key], vB = b[sortConfig.key]; if (sortConfig.key === 'date') { try { vA = new Date(String(a.date||0).split('T')[0] + 'T00:00:00Z').getTime(); vB = new Date(String(b.date||0).split('T')[0] + 'T00:00:00Z').getTime(); vA=isNaN(vA)?(sortConfig.direction==='asc'?Infinity:-Infinity):vA; vB=isNaN(vB)?(sortConfig.direction==='asc'?Infinity:-Infinity):vB;} catch{vA=Infinity;vB=Infinity;} } else if (sortConfig.key === 'amount'){ vA=a.amount||0; vB=b.amount||0; } else { vA=String(vA||'').toLowerCase(); vB=String(vB||'').toLowerCase(); const comp = vA.localeCompare(vB); return sortConfig.direction === 'asc' ? comp : -comp; } if (vA < vB) return sortConfig.direction === 'asc' ? -1 : 1; if (vA > vB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }, [installments, selectedMonth, selectedYear, sortConfig]);
+
+    const handleRemoveClick = (itemId) => {
+        const item = installments.find(i => String(i.id) === String(itemId));
+        const groupId = item?.installmentInfo?.groupId ?? item?.groupId;
+        const totalMonths = item?.installmentInfo?.totalMonths ?? item?.totalMonths ?? '?';
+
+        if (groupId && onRemoveInstallmentGroup) {
+            if (window.confirm(`Remover todas as ${totalMonths} parcelas deste item? (${item.description.replace(/\s\(\d+\/\d+\)$/,'')})`)) {
+                 onRemoveInstallmentGroup(groupId);
+            }
+        } else { console.warn("Could not remove installment group: groupId or handler missing.", {item}); }
+    };
+
     if (displayInstallments.length === 0) return null;
     return (
         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-700/50 sm:border-gray-700">
             <h3 className="list-title"> Parcelas de {MONTH_NAMES[selectedMonth]}/{selectedYear} </h3>
             <TransactionTable
                 items={displayInstallments}
-                onRemove={onRemoveInstallment}
-                allowEdit={false}
+                onRemove={handleRemoveClick}
+                onEditStart={onEditInstallmentStart}
+                editingId={editingId}
+                editForm={editForm}
+                setEditForm={setEditForm}
+                onEditSave={onEditInstallmentSave}
+                onEditCancel={onEditInstallmentCancel}
+                categories={categories}
+                allowEdit={true}
                 formatCurrency={formatCurrency}
                 formatDateDisplay={formatDateDisplay}
                 itemTypeColor={itemTypeColor}
                 showPaymentMethod={showPaymentMethod}
                 showDateColumn={showDateColumn}
-                showCategory={false}
+                showCategory={showCategory}
                 showPaymentDateColumn={false}
                 sortConfig={sortConfig}
                 onSortRequest={handleSortRequest}
+                showCard={showCard}
+                cards={cards}
              />
         </div>
      );
 };
 
 
-// --- Main App Component ---
+// --- Main App Component --- (No functional changes)
 const FinancialApp = () => {
     // State
     const [user, setUser] = useState(null); const [loadingAuth, setLoadingAuth] = useState(true); const [authError, setAuthError] = useState(''); const [profiles, setProfiles] = useState([]); const [selectedProfile, setSelectedProfile] = useState(INITIAL_PROFILE); const [loadingProfiles, setLoadingProfiles] = useState(true); const [profileError, setProfileError] = useState(''); const [financialData, setFinancialData] = useState({ incomeList: [], expenseList: [], recurringList: [] }); const [loadingData, setLoadingData] = useState(true); const [dataError, setDataError] = useState(''); const [isSaving, setIsSaving] = useState(false); const [activeTab, setActiveTab] = useState(INITIAL_TAB); const [currentMonthYear, setCurrentMonthYear] = useState(getCurrentMonthYear()); const { month: selectedMonth, year: selectedYear } = currentMonthYear;
@@ -580,7 +862,29 @@ const FinancialApp = () => {
     useEffect(() => { setLoadingAuth(true); const u = onAuthStateChanged(auth, (usr) => { setUser(usr); if (!usr) { setSelectedProfile(null); setProfiles([]); setFinancialData({ incomeList: [], expenseList: [], recurringList: [] }); localStorage.clear(); setLoadingProfiles(false); setLoadingData(false); } setLoadingAuth(false); }, (e) => { setAuthError("Erro auth."); setLoadingAuth(false); }); return u; }, []);
     useEffect(() => { if (!user) { setLoadingProfiles(false); setProfiles([]); setSelectedProfile(null); return; } setLoadingProfiles(true); setProfileError(''); const u = listenToProfiles(user.uid, (p) => { setProfiles(p); const s = localStorage.getItem('selectedProfile'); if (s && p.some(i => i.id === s)) setSelectedProfile(s); else if (p.length > 0) { const firstId = p[0].id; setSelectedProfile(firstId); localStorage.setItem('selectedProfile', firstId); } else { setSelectedProfile(null); localStorage.removeItem('selectedProfile');} setLoadingProfiles(false); }, (e) => { setProfileError("Erro perfis."); setLoadingProfiles(false); }); return u; }, [user]);
     useEffect(() => { if (!user || !selectedProfile) { setFinancialData({ incomeList: [], expenseList: [], recurringList: [] }); setLoadingData(false); return; } setLoadingData(true); setDataError(''); const u = listenToFinancialData(user.uid, selectedProfile, (d) => { setFinancialData({ incomeList: d?.incomeList || [], expenseList: d?.expenseList || [], recurringList: d?.recurringList || [] }); setLoadingData(false); }, (e) => { setDataError("Erro dados."); setLoadingData(false); }); return u; }, [user, selectedProfile]);
-    useEffect(() => { if (loadingData || loadingAuth || loadingProfiles || !user || !selectedProfile) return; setIsSaving(true); const t = setTimeout(() => { saveFinancialData(user.uid, selectedProfile, financialData).then(() => setIsSaving(false)).catch((e) => { setDataError("Falha ao salvar."); setIsSaving(false); }); }, 1500); return () => clearTimeout(t); }, [financialData, user, selectedProfile, loadingData, loadingAuth, loadingProfiles]);
+    // Debounced Save Effect
+    useEffect(() => {
+        if (loadingData || loadingAuth || loadingProfiles || !user || !selectedProfile) return;
+
+        setIsSaving(true);
+        const handler = setTimeout(() => {
+             saveFinancialData(user.uid, selectedProfile, financialData)
+                .then(() => {
+                    setIsSaving(false);
+                    setDataError('');
+                })
+                .catch((e) => {
+                    console.error("Save error:", e);
+                    setDataError("Falha ao salvar dados.");
+                    setIsSaving(false);
+                });
+        }, 1500);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [financialData, user, selectedProfile, loadingData, loadingAuth, loadingProfiles]);
+
     useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]); useEffect(() => { if (selectedProfile) localStorage.setItem('selectedProfile', selectedProfile); else localStorage.removeItem('selectedProfile'); }, [selectedProfile]);
     // Handlers
     const handleAuthSuccess = useCallback((u) => { setAuthError(''); }, []);
@@ -588,15 +892,190 @@ const FinancialApp = () => {
     const handleCreateProfile = useCallback(async (name) => { if (!user) return; setProfileError(''); try { await createProfile(user.uid, name); alert('Perfil criado!'); } catch (e) { setProfileError(e.message || 'Erro criar perfil.'); throw e;} }, [user]);
     const handleSelectProfile = useCallback((id) => { if (id !== selectedProfile) { setDataError(''); setProfileError(''); setSelectedProfile(id); } }, [selectedProfile]);
     // Data Ops
-    const addItem = useCallback((itemType, newItemData) => { if (!user || !selectedProfile) return; const listName = `${itemType}List`; const newItem = { ...newItemData, id: `id-${Date.now()}-${Math.random().toString(16).slice(2)}`, createdAt: new Date().toISOString(), category: newItemData.category || null, paymentDate: newItemData.paymentDate ?? null, card: newItemData.card ?? null }; const sanitizedItem = Object.entries(newItem).reduce((a, [k, v]) => { if (v !== undefined) a[k] = v; return a; }, {}); setFinancialData(prev => ({ ...prev, [listName]: [...(prev[listName] || []), sanitizedItem] })); }, [user, selectedProfile]);
-    const removeItem = useCallback((itemType, id) => { if (!user || !selectedProfile) return; setFinancialData(prev => ({ ...prev, [`${itemType}List`]: (prev[`${itemType}List`] || []).filter(i => i.id !== id) })); }, [user, selectedProfile]);
-    const updateItem = useCallback((itemType, id, data) => { if (!user || !selectedProfile) return; const listName = `${itemType}List`; const sanitized = Object.entries(data).reduce((a, [k, v]) => { if (v !== undefined) a[k] = v; return a; }, { updatedAt: new Date().toISOString() }); setFinancialData(prev => ({ ...prev, [listName]: (prev[listName] || []).map(i => i.id === id ? { ...i, ...sanitized } : i) })); }, [user, selectedProfile]);
+    const addItem = useCallback((itemType, newItemData) => {
+        if (!user || !selectedProfile) return;
+        const listName = `${itemType}List`;
+        const newItem = {
+            ...newItemData,
+            id: `id-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            createdAt: new Date().toISOString(),
+            category: newItemData.category || null,
+            paymentDate: newItemData.paymentDate ?? null,
+            card: newItemData.card ?? null
+        };
+        const sanitizedItem = Object.entries(newItem).reduce((a, [k, v]) => {
+            if (v !== undefined) a[k] = v;
+            return a;
+        }, {});
+        setFinancialData(prev => ({
+            ...prev,
+            [listName]: [...(prev[listName] || []), sanitizedItem]
+        }));
+    }, [user, selectedProfile]);
+    const removeItem = useCallback((itemType, idToRemove) => {
+        if (!user || !selectedProfile || !itemType || !idToRemove) return;
+        const listName = `${itemType}List`;
+        setFinancialData(prevData => {
+            const currentList = prevData[listName] || [];
+            return { ...prevData, [listName]: currentList.filter(item => String(item.id) !== String(idToRemove)) };
+        });
+    }, [user, selectedProfile]);
+    const updateItem = useCallback((itemType, idToUpdate, updatedData) => {
+        if (!user || !selectedProfile || !itemType || !idToUpdate) return;
+        const listName = `${itemType}List`;
+
+        const itemToUpdateCheck = financialData[listName]?.find(i => String(i.id) === String(idToUpdate));
+        if (itemToUpdateCheck?.isInstallment) {
+            return;
+        }
+
+        const dataWithTimestamp = { ...updatedData, updatedAt: new Date().toISOString() };
+        const sanitizedUpdate = Object.entries(dataWithTimestamp).reduce((acc, [key, value]) => {
+            if (value !== undefined) acc[key] = value;
+            return acc;
+        }, {});
+        setFinancialData(prevData => {
+            const currentList = prevData[listName] || [];
+            return {
+                ...prevData,
+                [listName]: currentList.map(item =>
+                    String(item.id) === String(idToUpdate)
+                    ? { ...item, ...sanitizedUpdate }
+                    : item
+                )
+            };
+        });
+    }, [user, selectedProfile, financialData]);
+
+    // Installment Group Handlers
+    const removeInstallmentGroup = useCallback((groupIdToRemove) => {
+        if (!user || !selectedProfile || !groupIdToRemove) return;
+        setFinancialData(prevData => {
+            const currentExpenses = prevData.expenseList || [];
+            return { ...prevData, expenseList: currentExpenses.filter(item => {
+                 const itemGroupId = item.installmentInfo?.groupId ?? item.groupId;
+                 return !(item.isInstallment && itemGroupId === groupIdToRemove);
+             }) };
+        });
+    }, [user, selectedProfile]);
+
+    const updateInstallmentGroup = useCallback((groupIdToUpdate, editedItemId, updatedFields) => {
+        if (!user || !selectedProfile || !groupIdToUpdate || !editedItemId) {
+            console.error("[updateInstallmentGroup Error] Faltando IDs", { userId: user?.uid, profileId: selectedProfile, groupId: groupIdToUpdate, editedItemId });
+            return;
+        }
+
+        setFinancialData(prevData => {
+            const currentExpenses = prevData.expenseList || [];
+            let hasChangedOverall = false;
+
+            const updatedList = currentExpenses.map(item => {
+                const itemGroupId = item.installmentInfo?.groupId ?? item.groupId;
+
+                if (item.isInstallment && itemGroupId === groupIdToUpdate) {
+
+                    const totalMonths = item.installmentInfo?.totalMonths ?? item.totalMonths ?? '?';
+                    const currentInstallment = item.installmentInfo?.currentInstallment ?? (item.currentMonthIndex !== undefined ? item.currentMonthIndex + 1 : '?');
+
+                    const descriptionMatch = String(updatedFields.description || '').match(/^(.*?)(?:\s*\(\d+\/\d+\))?$/);
+                    const baseDescription = descriptionMatch ? descriptionMatch[1].trim() : item.description.replace(/\s*\(\d+\/\d+\)$/, '').trim();
+                    const newDescription = `${baseDescription || 'Parcela'} (${currentInstallment}/${totalMonths})`;
+
+                    let itemUpdate = { ...item };
+                    let itemSpecificChange = false;
+
+                    if (updatedFields.description !== undefined && item.description !== newDescription) {
+                        itemUpdate.description = newDescription;
+                        itemSpecificChange = true;
+                    }
+                    if (updatedFields.category !== undefined && item.category !== (updatedFields.category || null)) {
+                        itemUpdate.category = updatedFields.category || null;
+                        itemSpecificChange = true;
+                    }
+                    if (updatedFields.card !== undefined && item.card !== (updatedFields.card || null)) {
+                        itemUpdate.card = updatedFields.card || null;
+                        itemSpecificChange = true;
+                    }
+
+                    const itemIdStr = String(item.id);
+                    const editedItemIdStr = String(editedItemId);
+
+                    if (itemIdStr === editedItemIdStr) {
+                        const newAmount = updatedFields.amount !== undefined ? parseFloat(updatedFields.amount) : item.amount;
+                         if (item.amount !== newAmount) {
+                            itemUpdate.amount = newAmount;
+                            itemSpecificChange = true;
+                         }
+                         if (updatedFields.date !== undefined && item.date !== updatedFields.date) {
+                             itemUpdate.date = updatedFields.date;
+                             itemSpecificChange = true;
+                         }
+                         if (updatedFields.paymentDate !== undefined && item.paymentDate !== updatedFields.paymentDate) {
+                             itemUpdate.paymentDate = updatedFields.paymentDate;
+                             itemSpecificChange = true;
+                         }
+                          if (updatedFields.paymentMethod !== undefined && item.paymentMethod !== updatedFields.paymentMethod) {
+                             itemUpdate.paymentMethod = updatedFields.paymentMethod;
+                             itemSpecificChange = true;
+                         }
+                    }
+
+                    if (itemSpecificChange) {
+                        itemUpdate.updatedAt = new Date().toISOString();
+                        hasChangedOverall = true;
+                        return itemUpdate;
+                    } else {
+                        return item;
+                    }
+                }
+                return item;
+            });
+
+            if (hasChangedOverall) {
+                return { ...prevData, expenseList: updatedList };
+            } else {
+                return prevData;
+            }
+        });
+    }, [user, selectedProfile]);
+
+
     // Calculations
-    const { effectiveMonthlyIncome, effectiveMonthlyExpenses, effectiveMonthlyRecurring } = useMemo(() => { const filter = (item) => { const d = getEffectiveDateForFiltering(item); return d && d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear; }; const filteredExpenses = (financialData.expenseList || []).filter(filter); const filteredRecurring = (financialData.recurringList || []).filter(filter); return { effectiveMonthlyIncome: (financialData.incomeList || []).filter(filter), effectiveMonthlyExpenses: filteredExpenses, effectiveMonthlyRecurring: filteredRecurring, }; }, [financialData, selectedMonth, selectedYear]);
+    const { effectiveMonthlyIncome, effectiveMonthlyExpenses, effectiveMonthlyRecurring } = useMemo(() => {
+        const filter = (item) => {
+            const d = getEffectiveDateForFiltering(item);
+            return d && !isNaN(d.getTime()) && d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear;
+        };
+        const filteredExpenses = (financialData.expenseList || []).filter(filter);
+        const filteredRecurring = (financialData.recurringList || []).filter(filter);
+        const filteredIncome = (financialData.incomeList || []).filter(filter);
+        return {
+            effectiveMonthlyIncome: filteredIncome,
+            effectiveMonthlyExpenses: filteredExpenses,
+            effectiveMonthlyRecurring: filteredRecurring,
+        };
+    }, [financialData, selectedMonth, selectedYear]);
+
     const allIncomeList = useMemo(() => financialData.incomeList || [], [financialData.incomeList]); const allExpenseList = useMemo(() => financialData.expenseList || [], [financialData.expenseList]); const allRecurringExpensesList = useMemo(() => financialData.recurringList || [], [financialData.recurringList]);
     const totals = useMemo(() => { const singleExp = effectiveMonthlyExpenses.filter(i => !i.isInstallment).reduce((s, i) => s + (i.amount || 0), 0); const instExp = effectiveMonthlyExpenses.filter(i => i.isInstallment).reduce((s, i) => s + (i.amount || 0), 0); const recurExp = effectiveMonthlyRecurring.reduce((s, i) => s + (i.amount || 0), 0); return { totalIncome: effectiveMonthlyIncome.reduce((s, i) => s + (i.amount || 0), 0), totalExpenses: singleExp, totalInstallments: instExp, totalRecurring: recurExp, }; }, [effectiveMonthlyIncome, effectiveMonthlyExpenses, effectiveMonthlyRecurring]);
     const balance = useMemo(() => totals.totalIncome - (totals.totalExpenses + totals.totalInstallments + totals.totalRecurring), [totals]);
-    const expensesByCategory = useMemo(() => { const combinedExpenses = [ ...effectiveMonthlyExpenses.filter(i => !i.isInstallment), ...effectiveMonthlyRecurring ]; const grouped = combinedExpenses.reduce((acc, item) => { const category = item.category || 'Sem Categoria'; const currentTotal = acc[category] || 0; acc[category] = currentTotal + (item.amount || 0); return acc; }, {}); return Object.entries(grouped).map(([name, value]) => ({ name, value })).filter(item => item.value > 0).sort((a, b) => b.value - a.value); }, [effectiveMonthlyExpenses, effectiveMonthlyRecurring]);
+    const expensesByCategory = useMemo(() => {
+        const combinedExpenses = [
+            ...effectiveMonthlyExpenses,
+            ...effectiveMonthlyRecurring
+        ];
+        const grouped = combinedExpenses.reduce((acc, item) => {
+            const category = item.category || 'Sem Categoria';
+            const currentTotal = acc[category] || 0;
+            acc[category] = currentTotal + (Number(item.amount) || 0);
+            return acc;
+        }, {});
+        return Object.entries(grouped)
+            .map(([name, value]) => ({ name, value }))
+            .filter(item => item.value > 0)
+            .sort((a, b) => b.value - a.value);
+    }, [effectiveMonthlyExpenses, effectiveMonthlyRecurring]);
+
     // Render Logic
     const isLoading = loadingAuth || loadingProfiles || loadingData;
     if (loadingAuth && !user) return <div className="loading-screen">Carregando...</div>;
@@ -628,9 +1107,59 @@ const FinancialApp = () => {
                                             formatCurrency={formatCurrency}
                                             expensesByCategory={expensesByCategory}
                                         />}
-                                    {activeTab === 'income' && <TransactionSection title="Gerenciar Receitas" items={effectiveMonthlyIncome} fullList={allIncomeList} onAddItem={(d)=>addItem('income',d)} onRemoveItem={(id)=>removeItem('income',id)} onUpdateItem={(id,d)=>updateItem('income',id,d)} itemTypeColor="green-400" baseColor="green" categories={DEFAULT_CATEGORIES} formatCurrency={formatCurrency} formatDateDisplay={formatDateDisplay} selectedMonth={selectedMonth} selectedYear={selectedYear} />}
-                                    {activeTab === 'expenses' && <TransactionSection title="Gerenciar Despesas" items={effectiveMonthlyExpenses.filter(i => !i.isInstallment)} fullList={allExpenseList} onAddItem={(d)=>addItem('expense',d)} onRemoveItem={(id)=>removeItem('expense',id)} onUpdateItem={(id,d)=>updateItem('expense',id,d)} itemTypeColor="red-400" baseColor="red" categories={DEFAULT_CATEGORIES} showCardOption={true} cards={CARDS} formatCurrency={formatCurrency} formatDateDisplay={formatDateDisplay} selectedMonth={selectedMonth} selectedYear={selectedYear} />}
-                                    {activeTab === 'recurring' && <TransactionSection title="Gerenciar Despesas Recorrentes" items={allRecurringExpensesList} fullList={allRecurringExpensesList} onAddItem={(d)=>addItem('recurring',d)} onRemoveItem={(id)=>removeItem('recurring',id)} onUpdateItem={(id,d)=>updateItem('recurring',id,d)} itemTypeColor="orange-400" baseColor="orange" categories={DEFAULT_CATEGORIES} showCardOption={true} cards={CARDS} formatCurrency={formatCurrency} formatDateDisplay={formatDateDisplay} selectedMonth={selectedMonth} selectedYear={selectedYear} isRecurring={true} />}
+                                    {activeTab === 'income' &&
+                                        <TransactionSection
+                                            title="Gerenciar Receitas"
+                                            items={effectiveMonthlyIncome}
+                                            fullList={allIncomeList}
+                                            onAddItem={(d)=>addItem('income',d)}
+                                            onRemoveItem={(id)=>removeItem('income',id)}
+                                            onUpdateItem={(id,d)=>updateItem('income',id,d)}
+                                            itemTypeColor="green-400"
+                                            baseColor="green"
+                                            categories={DEFAULT_CATEGORIES}
+                                            formatCurrency={formatCurrency}
+                                            formatDateDisplay={formatDateDisplay}
+                                            selectedMonth={selectedMonth}
+                                            selectedYear={selectedYear}
+                                        />}
+                                    {activeTab === 'expenses' &&
+                                        <TransactionSection
+                                            title="Gerenciar Despesas"
+                                            items={effectiveMonthlyExpenses.filter(i => !i.isInstallment)}
+                                            fullList={allExpenseList}
+                                            onAddItem={(d)=>addItem('expense',d)}
+                                            onRemoveItem={(id)=>removeItem('expense',id)}
+                                            onUpdateItem={(id,d)=>updateItem('expense',id,d)}
+                                            removeInstallmentGroup={removeInstallmentGroup}
+                                            updateInstallmentGroup={updateInstallmentGroup}
+                                            itemTypeColor="red-400"
+                                            baseColor="red"
+                                            categories={DEFAULT_CATEGORIES}
+                                            showCardOption={true} cards={CARDS}
+                                            formatCurrency={formatCurrency}
+                                            formatDateDisplay={formatDateDisplay}
+                                            selectedMonth={selectedMonth}
+                                            selectedYear={selectedYear}
+                                        />}
+                                    {activeTab === 'recurring' &&
+                                        <TransactionSection
+                                            title="Gerenciar Despesas Recorrentes"
+                                            items={allRecurringExpensesList}
+                                            fullList={allRecurringExpensesList}
+                                            onAddItem={(d)=>addItem('recurring',d)}
+                                            onRemoveItem={(id)=>removeItem('recurring',id)}
+                                            onUpdateItem={(id,d)=>updateItem('recurring',id,d)}
+                                            itemTypeColor="orange-400"
+                                            baseColor="orange"
+                                            categories={DEFAULT_CATEGORIES}
+                                            showCardOption={true} cards={CARDS}
+                                            formatCurrency={formatCurrency}
+                                            formatDateDisplay={formatDateDisplay}
+                                            selectedMonth={selectedMonth}
+                                            selectedYear={selectedYear}
+                                            isRecurring={true}
+                                        />}
                                 </div>
                             )}
                         </main>
@@ -648,4 +1177,4 @@ const FinancialApp = () => {
 
 export default FinancialApp;
 
-// --- END OF FULL COMPLETE CORRECTED FILE App.js ---
+/* --- END OF FILE App.js --- */
