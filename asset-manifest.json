@@ -1,18 +1,18 @@
 {
   "files": {
     "main.css": "/meu-app-financeiro/static/css/main.b649b73c.css",
-    "main.js": "/meu-app-financeiro/static/js/main.b4a0797b.js",
+    "main.js": "/meu-app-financeiro/static/js/main.664fe324.js",
     "static/js/453.42c2ba32.chunk.js": "/meu-app-financeiro/static/js/453.42c2ba32.chunk.js",
     "static/media/nubank.png": "/meu-app-financeiro/static/media/nubank.458892ec59329bb58909.png",
     "static/media/bb.png": "/meu-app-financeiro/static/media/bb.9d5e6e061874d78d6188.png",
     "static/media/santander.png": "/meu-app-financeiro/static/media/santander.6936c30352b901fca22e.png",
     "index.html": "/meu-app-financeiro/index.html",
     "main.b649b73c.css.map": "/meu-app-financeiro/static/css/main.b649b73c.css.map",
-    "main.b4a0797b.js.map": "/meu-app-financeiro/static/js/main.b4a0797b.js.map",
+    "main.664fe324.js.map": "/meu-app-financeiro/static/js/main.664fe324.js.map",
     "453.42c2ba32.chunk.js.map": "/meu-app-financeiro/static/js/453.42c2ba32.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.b649b73c.css",
-    "static/js/main.b4a0797b.js"
+    "static/js/main.664fe324.js"
   ]
 }
