@@ -1,5 +1,4 @@
-/* --- START OF FILE App.js --- */
-
+/* --- START OF MODIFIED App.js --- */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // Use the revised App.css which handles responsive styles
 import './App.css';
@@ -276,7 +275,12 @@ const CardDropdown = ({ cards, selectedCard, onSelectCard, baseColor = "gray" })
     );
 };
 
-// ** DashboardView Component ** (No Changes)
+// --- MODIFIED: PIE_COLORS moved outside DashboardView component ---
+const PIE_COLORS_CONST = [
+    '#2dd4bf', '#f97316', '#ec4899', '#facc15', '#38bdf8', '#a78bfa', '#ef4444', '#84cc16', '#6366f1',
+];
+
+// ** DashboardView Component **
 const DashboardView = ({
     totals,
     balance,
@@ -288,18 +292,16 @@ const DashboardView = ({
 
     const [activeIndex, setActiveIndex] = useState(null);
 
-    const PIE_COLORS = [
-        '#2dd4bf', '#f97316', '#ec4899', '#facc15', '#38bdf8', '#a78bfa', '#ef4444', '#84cc16', '#6366f1',
-    ];
+    // PIE_COLORS is now PIE_COLORS_CONST from the outer scope
 
     const pieChartData = useMemo(() => {
         return (expensesByCategory || [])
                .filter(cat => cat.value > 0)
                .map((entry, index) => ({
                     ...entry,
-                    fill: PIE_COLORS[index % PIE_COLORS.length]
+                    fill: PIE_COLORS_CONST[index % PIE_COLORS_CONST.length] // Use the constant from outer scope
                }));
-    }, [expensesByCategory]);
+    }, [expensesByCategory]); // PIE_COLORS_CONST is stable and not needed in deps
 
     const totalCategorizedExpenses = useMemo(() =>
         pieChartData.reduce((sum, entry) => sum + entry.value, 0),
@@ -345,9 +347,6 @@ const DashboardView = ({
         const yText = cy + radiusText * Math.sin(-midAngle * RADIAN);
         const textAnchor = xText > cx ? 'start' : 'end';
 
-        // Optional: Hide label if percentage is too small
-        // if (percent < 0.02) return null;
-
         return (
              <g>
                 <path d={`M${xLineStart},${yLineStart}L${xText},${yText}`} stroke={fill} fill="none" strokeWidth={1} />
@@ -386,8 +385,8 @@ const DashboardView = ({
                                      data={pieChartData} cx="50%" cy="50%"
                                      innerRadius={60} outerRadius={100} fill="#8884d8"
                                      paddingAngle={3} dataKey="value" nameKey="name"
-                                     labelLine={true} // Keep line enabled
-                                     label={renderCustomizedLabel} // Use external label renderer
+                                     labelLine={true} 
+                                     label={renderCustomizedLabel} 
                                      onMouseEnter={onPieEnter} onMouseLeave={onPieLeave}
                                  >
                                      {pieChartData.map((entry, index) => (
@@ -405,11 +404,10 @@ const DashboardView = ({
                      <h3 className="text-base sm:text-lg font-semibold text-gray-200 mb-4">Legenda / Categorias</h3>
                      {expensesByCategory && expensesByCategory.length > 0 ? (
                          <div className="flex-grow overflow-y-auto pr-2 text-xs sm:text-sm space-y-2">
-                             {/* Iterate over ALL categories for legend */}
                              {expensesByCategory.map((cat, index) => (
                                  <div key={`legend-${index}`} className="flex items-center justify-between">
                                      <span className="flex items-center truncate">
-                                         <span className="w-2.5 h-2.5 rounded-full mr-2.5 flex-shrink-0" style={{ backgroundColor: pieChartData.find(p => p.name === cat.name)?.fill || PIE_COLORS[index % PIE_COLORS.length] }}></span>
+                                         <span className="w-2.5 h-2.5 rounded-full mr-2.5 flex-shrink-0" style={{ backgroundColor: pieChartData.find(p => p.name === cat.name)?.fill || PIE_COLORS_CONST[index % PIE_COLORS_CONST.length] }}></span>
                                          <span className="truncate text-gray-300" title={cat.name}>{cat.name}</span>
                                      </span>
                                      <span className="font-medium text-gray-400 flex-shrink-0 ml-2">{formatCurrency(cat.value)}</span>
@@ -423,7 +421,7 @@ const DashboardView = ({
     );
 };
 
-// ** TransactionTable Component ** (Corrected Footer Alignment)
+// ** TransactionTable Component ** (No Changes other than props)
 const TransactionTable = ({
     items, onRemove, onEditStart, onEditSave, onEditCancel, editingId, editForm, setEditForm, formatCurrency, formatDateDisplay, itemTypeColor = 'gray-300', allowEdit = true, showCard = false, cards = {}, showPaymentMethod = false, showDateColumn = false, showCategory = false, showPaymentDateColumn = false, sortConfig, onSortRequest, categories = [],
 }) => {
@@ -485,7 +483,6 @@ const TransactionTable = ({
                             </tr>
                          );
                     })}
-                    {/* Footer row */}
                     {items.length > 0 && (
                         <tr className="bg-gray-800/50 font-semibold text-xs sm:text-sm">
                             <td colSpan={labelColspan} className="py-2 px-2 sm:py-3 sm:px-4 text-left">Total</td>
@@ -503,7 +500,7 @@ const TransactionTable = ({
 };
 
 
-// ** TransactionSection Component ** (No functional changes)
+// ** TransactionSection Component ** (No Changes other than props)
 const TransactionSection = ({
     title, items, fullList,
     onAddItem, onRemoveItem, onUpdateItem,
@@ -513,6 +510,8 @@ const TransactionSection = ({
     isRecurring = false,
     formatCurrency, formatDateDisplay,
     selectedMonth, selectedYear,
+    descriptionFilter, 
+    selectedCategoryFilter, 
 }) => {
     const [amount, setAmount] = useState(''); const [description, setDescription] = useState(''); const [transactionDate, setTransactionDate] = useState(''); const [paymentDate, setPaymentDate] = useState(''); const [category, setCategory] = useState(''); const [selectedCard, setSelectedCard] = useState(''); const [paymentMethod, setPaymentMethod] = useState( (baseColor === 'green') ? 'deposit' : 'credit' );
     useEffect(() => { const today = new Date(); const currentMonth = today.getMonth(); const currentYear = today.getFullYear(); let targetDate; if (selectedMonth === currentMonth && selectedYear === currentYear) { targetDate = new Date(currentYear, currentMonth, today.getDate(), 12, 0, 0); } else { targetDate = new Date(selectedYear, selectedMonth, 1, 12, 0, 0); } const initialDateValue = toInputDateString(targetDate); setTransactionDate(initialDateValue); setPaymentDate(''); }, [selectedMonth, selectedYear]);
@@ -602,7 +601,6 @@ const TransactionSection = ({
         <div className={`bg-gray-900 rounded-xl p-3 sm:p-6 border-2 border-${baseColor}-400 shadow-lg shadow-${baseColor}-500/20 mb-4 sm:mb-8`}>
             <h2 className={`text-base sm:text-xl font-semibold text-${baseColor}-400 mb-4 sm:mb-6`}>{title}</h2>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-3 sm:gap-y-5 mb-4 sm:mb-6 items-end">
-                 {/* Form Inputs */}
                  <div> <label htmlFor={`${baseColor}-amount`} className="input-label">Valor (*)</label> <input id={`${baseColor}-amount`} type="number" placeholder="0.00" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className={`input-base ${currentFormColors.border} ${currentFormColors.ring}`} /> </div>
                  <div> <label htmlFor={`${baseColor}-description`} className="input-label">Descrição (*)</label> <input id={`${baseColor}-description`} type="text" placeholder="Descrição da transação" value={description} onChange={(e) => setDescription(e.target.value)} required className={`input-base ${currentFormColors.border} ${currentFormColors.ring}`} /> </div>
                  <div> <label htmlFor={`${baseColor}-date`} className="input-label">Data Transação (*)</label> <input id={`${baseColor}-date`} type="date" value={transactionDate} onChange={(e) => setTransactionDate(e.target.value)} required className={`input-base appearance-none ${currentFormColors.border} ${currentFormColors.ring}`} style={{ colorScheme: 'dark' }} /> </div>
@@ -621,7 +619,6 @@ const TransactionSection = ({
                      <button onClick={handleAdd} className={`add-button w-full ${currentButtonGradient}`}> Adicionar </button>
                  </div>
             </div>
-            {/* Installment Section */}
             {baseColor === 'red' && !isRecurring &&
                 <InstallmentSection
                     onAddItem={onAddItem}
@@ -631,7 +628,6 @@ const TransactionSection = ({
                     cards={cards}
                 />}
             <h3 className="list-title"> {isRecurring ? "Itens Registrados" : `Considerados em ${MONTH_NAMES[selectedMonth]} de ${selectedYear}`} <span className="list-subtitle">{!isRecurring && "(Baseado na Data de Pagamento para Crédito)"}</span> </h3>
-            {/* Main Transaction Table */}
              <TransactionTable
                 items={sortedItems}
                 onRemove={onRemoveItem}
@@ -649,7 +645,6 @@ const TransactionSection = ({
                 sortConfig={sortConfig} onSortRequest={handleSortRequest}
                 categories={categories}
             />
-            {/* Installment List */}
             {baseColor === 'red' && !isRecurring && (
                 <InstallmentList
                     installments={fullList?.filter(i => i.isInstallment) ?? []}
@@ -669,13 +664,15 @@ const TransactionSection = ({
                     showCategory={true}
                     showCard={true}
                     cards={cards}
+                    descriptionFilter={descriptionFilter} 
+                    selectedCategoryFilter={selectedCategoryFilter} 
                  />
              )}
         </div>
     );
 };
 
-// ** InstallmentSection Component ** (Re-added Card Selection, Corrected Date Logic)
+// ** InstallmentSection Component ** (No Changes other than props)
 const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear, cards }) => {
     const [totalAmount, setTotalAmount] = useState('');
     const [description, setDescription] = useState('');
@@ -683,7 +680,6 @@ const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear,
     const [firstInstallmentDate, setFirstInstallmentDate] = useState('');
     const [selectedCard, setSelectedCard] = useState(null);
 
-    // Effect to initialize/update the first installment date
     useEffect(() => {
         const defaultDate = new Date(Date.UTC(selectedYear, selectedMonth, 1));
         setFirstInstallmentDate(toInputDateString(defaultDate));
@@ -729,7 +725,7 @@ const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear,
                     paymentDate: currentInstallmentDateISO,
                     isInstallment: true,
                     paymentMethod: 'credit',
-                    category: 'Parcelamento',
+                    category: 'Parcelamento', // Default category for new installments
                     card: selectedCard || null,
                     installmentInfo: {
                         groupId: installmentGroupId,
@@ -741,7 +737,6 @@ const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear,
                 };
                 onAddItem(installmentItem);
             }
-            // Reset form
             setTotalAmount('');
             setDescription('');
             setMonths(2);
@@ -757,9 +752,7 @@ const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear,
     return (
         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-700/50 sm:border-gray-700">
             <h3 className={`text-sm sm:text-lg font-semibold text-${baseColor}-400 mb-4 sm:mb-6`}>Adicionar Compra Parcelada</h3>
-             {/* *** UPDATED GRID: Use 4 columns on large screens for consistency *** */}
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-3 sm:gap-y-5 mb-4 sm:mb-6 items-end">
-                 {/* Row 1 (lg) */}
                  <div> <label htmlFor="inst-amount" className="input-label">Valor Total (*)</label> <input id="inst-amount" type="number" placeholder="1200.00" step="0.01" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} required className={`input-base ${formColors.border} ${formColors.ring}`} /> </div>
                  <div> <label htmlFor="inst-description" className="input-label">Descrição (*)</label> <input id="inst-description" type="text" placeholder="Ex: Celular Novo" value={description} onChange={e => setDescription(e.target.value)} required className={`input-base ${formColors.border} ${formColors.ring}`} /> </div>
                  <div> <label htmlFor="inst-months" className="input-label">Nº Parcelas (*)</label> <input id="inst-months" type="number" min="2" step="1" placeholder="12" value={months} onChange={e => setMonths(parseInt(e.target.value) || 2)} required className={`input-base ${formColors.border} ${formColors.ring}`} /> </div>
@@ -775,8 +768,6 @@ const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear,
                         style={{ colorScheme: 'dark' }}
                      />
                  </div>
-                 {/* Row 2 (lg) */}
-                 {/* Card dropdown now takes the first column on the second row (lg) */}
                  <div>
                      <label className="input-label">Cartão (Opcional)</label>
                      <CardDropdown
@@ -786,9 +777,7 @@ const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear,
                         baseColor="red"
                      />
                  </div>
-                 {/* Button aligned to the end (4th column on lg) */}
-                 {/* *** UPDATED GRID POSITIONING FOR BUTTON *** */}
-                 <div className="sm:col-start-2 lg:col-start-4 flex items-end"> {/* Aligns button to the last column on lg, and second column on sm */}
+                 <div className="sm:col-start-2 lg:col-start-4 flex items-end">
                      <button onClick={handleAddInstallment} className={`add-button w-full ${btnGradient}`}> Parcelar </button>
                  </div>
             </div>
@@ -796,7 +785,7 @@ const InstallmentSection = ({ onAddItem, baseColor, selectedMonth, selectedYear,
      );
 };
 
-// ** InstallmentList Component ** (No functional changes)
+// ** InstallmentList Component ** (No Changes other than props)
 const InstallmentList = ({
     installments, selectedMonth, selectedYear, formatCurrency, formatDateDisplay,
     onRemoveInstallmentGroup, onEditInstallmentStart,
@@ -804,11 +793,56 @@ const InstallmentList = ({
     showCategory = false, showCard = false, cards = {},
     editingId, editForm, setEditForm,
     onEditInstallmentSave, onEditInstallmentCancel,
-    categories = []
+    categories = [],
+    descriptionFilter, 
+    selectedCategoryFilter,
 }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'asc' });
     const handleSortRequest = (key) => { let d = 'asc'; if (sortConfig.key === key && sortConfig.direction === 'asc') d = 'desc'; setSortConfig({ key, direction: d }); };
-    const displayInstallments = useMemo(() => { const filtered = (installments || []).filter(item => { if (!item.date || !item.isInstallment) return false; try { const d = new Date(String(item.date).split('T')[0] + 'T00:00:00Z'); return !isNaN(d.getTime()) && d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear; } catch { return false; } }); return [...filtered].sort((a, b) => { let vA = a[sortConfig.key], vB = b[sortConfig.key]; if (sortConfig.key === 'date') { try { vA = new Date(String(a.date||0).split('T')[0] + 'T00:00:00Z').getTime(); vB = new Date(String(b.date||0).split('T')[0] + 'T00:00:00Z').getTime(); vA=isNaN(vA)?(sortConfig.direction==='asc'?Infinity:-Infinity):vA; vB=isNaN(vB)?(sortConfig.direction==='asc'?Infinity:-Infinity):vB;} catch{vA=Infinity;vB=Infinity;} } else if (sortConfig.key === 'amount'){ vA=a.amount||0; vB=b.amount||0; } else { vA=String(vA||'').toLowerCase(); vB=String(vB||'').toLowerCase(); const comp = vA.localeCompare(vB); return sortConfig.direction === 'asc' ? comp : -comp; } if (vA < vB) return sortConfig.direction === 'asc' ? -1 : 1; if (vA > vB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }, [installments, selectedMonth, selectedYear, sortConfig]);
+    
+    const displayInstallments = useMemo(() => {
+        const monthYearFiltered = (installments || []).filter(item => {
+            if (!item.date || !item.isInstallment) return false;
+            try {
+                const d = new Date(String(item.date).split('T')[0] + 'T00:00:00Z');
+                return !isNaN(d.getTime()) && d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear;
+            } catch { return false; }
+        });
+
+        const descriptionFilteredList = !descriptionFilter?.trim()
+            ? monthYearFiltered
+            : monthYearFiltered.filter(item =>
+                item.description && item.description.toLowerCase().includes(descriptionFilter.trim().toLowerCase())
+              );
+        
+        const categoryFilteredList = !selectedCategoryFilter
+            ? descriptionFilteredList
+            : descriptionFilteredList.filter(item => {
+                const itemCategory = item.category || 'Sem Categoria';
+                return itemCategory === selectedCategoryFilter;
+              });
+        
+        return [...categoryFilteredList].sort((a, b) => { 
+            let vA = a[sortConfig.key], vB = b[sortConfig.key];
+            if (sortConfig.key === 'date') {
+                try {
+                    vA = new Date(String(a.date||0).split('T')[0] + 'T00:00:00Z').getTime();
+                    vB = new Date(String(b.date||0).split('T')[0] + 'T00:00:00Z').getTime();
+                    vA = isNaN(vA) ? (sortConfig.direction === 'asc' ? Infinity : -Infinity) : vA;
+                    vB = isNaN(vB) ? (sortConfig.direction === 'asc' ? Infinity : -Infinity) : vB;
+                } catch { vA = Infinity; vB = Infinity; }
+            } else if (sortConfig.key === 'amount'){
+                vA = a.amount || 0; vB = b.amount || 0;
+            } else {
+                vA = String(vA||'').toLowerCase(); vB = String(vB||'').toLowerCase();
+                const comp = vA.localeCompare(vB);
+                return sortConfig.direction === 'asc' ? comp : -comp;
+            }
+            if (vA < vB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (vA > vB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [installments, selectedMonth, selectedYear, sortConfig, descriptionFilter, selectedCategoryFilter]);
 
     const handleRemoveClick = (itemId) => {
         const item = installments.find(i => String(i.id) === String(itemId));
@@ -842,7 +876,7 @@ const InstallmentList = ({
                 itemTypeColor={itemTypeColor}
                 showPaymentMethod={showPaymentMethod}
                 showDateColumn={showDateColumn}
-                showCategory={showCategory}
+                showCategory={true}
                 showPaymentDateColumn={false}
                 sortConfig={sortConfig}
                 onSortRequest={handleSortRequest}
@@ -854,44 +888,31 @@ const InstallmentList = ({
 };
 
 
-// --- Main App Component --- (No functional changes)
+// --- Main App Component ---
 const FinancialApp = () => {
-    // State
     const [user, setUser] = useState(null); const [loadingAuth, setLoadingAuth] = useState(true); const [authError, setAuthError] = useState(''); const [profiles, setProfiles] = useState([]); const [selectedProfile, setSelectedProfile] = useState(INITIAL_PROFILE); const [loadingProfiles, setLoadingProfiles] = useState(true); const [profileError, setProfileError] = useState(''); const [financialData, setFinancialData] = useState({ incomeList: [], expenseList: [], recurringList: [] }); const [loadingData, setLoadingData] = useState(true); const [dataError, setDataError] = useState(''); const [isSaving, setIsSaving] = useState(false); const [activeTab, setActiveTab] = useState(INITIAL_TAB); const [currentMonthYear, setCurrentMonthYear] = useState(getCurrentMonthYear()); const { month: selectedMonth, year: selectedYear } = currentMonthYear;
-    // Effects
+    const [descriptionFilter, setDescriptionFilter] = useState(''); 
+    const [selectedCategoryFilter, setSelectedCategoryFilter] = useState(''); 
+
     useEffect(() => { setLoadingAuth(true); const u = onAuthStateChanged(auth, (usr) => { setUser(usr); if (!usr) { setSelectedProfile(null); setProfiles([]); setFinancialData({ incomeList: [], expenseList: [], recurringList: [] }); localStorage.clear(); setLoadingProfiles(false); setLoadingData(false); } setLoadingAuth(false); }, (e) => { setAuthError("Erro auth."); setLoadingAuth(false); }); return u; }, []);
     useEffect(() => { if (!user) { setLoadingProfiles(false); setProfiles([]); setSelectedProfile(null); return; } setLoadingProfiles(true); setProfileError(''); const u = listenToProfiles(user.uid, (p) => { setProfiles(p); const s = localStorage.getItem('selectedProfile'); if (s && p.some(i => i.id === s)) setSelectedProfile(s); else if (p.length > 0) { const firstId = p[0].id; setSelectedProfile(firstId); localStorage.setItem('selectedProfile', firstId); } else { setSelectedProfile(null); localStorage.removeItem('selectedProfile');} setLoadingProfiles(false); }, (e) => { setProfileError("Erro perfis."); setLoadingProfiles(false); }); return u; }, [user]);
     useEffect(() => { if (!user || !selectedProfile) { setFinancialData({ incomeList: [], expenseList: [], recurringList: [] }); setLoadingData(false); return; } setLoadingData(true); setDataError(''); const u = listenToFinancialData(user.uid, selectedProfile, (d) => { setFinancialData({ incomeList: d?.incomeList || [], expenseList: d?.expenseList || [], recurringList: d?.recurringList || [] }); setLoadingData(false); }, (e) => { setDataError("Erro dados."); setLoadingData(false); }); return u; }, [user, selectedProfile]);
-    // Debounced Save Effect
     useEffect(() => {
         if (loadingData || loadingAuth || loadingProfiles || !user || !selectedProfile) return;
-
         setIsSaving(true);
         const handler = setTimeout(() => {
              saveFinancialData(user.uid, selectedProfile, financialData)
-                .then(() => {
-                    setIsSaving(false);
-                    setDataError('');
-                })
-                .catch((e) => {
-                    console.error("Save error:", e);
-                    setDataError("Falha ao salvar dados.");
-                    setIsSaving(false);
-                });
+                .then(() => { setIsSaving(false); setDataError(''); })
+                .catch((e) => { console.error("Save error:", e); setDataError("Falha ao salvar dados."); setIsSaving(false); });
         }, 1500);
-
-        return () => {
-            clearTimeout(handler);
-        };
+        return () => { clearTimeout(handler); };
     }, [financialData, user, selectedProfile, loadingData, loadingAuth, loadingProfiles]);
 
     useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]); useEffect(() => { if (selectedProfile) localStorage.setItem('selectedProfile', selectedProfile); else localStorage.removeItem('selectedProfile'); }, [selectedProfile]);
-    // Handlers
     const handleAuthSuccess = useCallback((u) => { setAuthError(''); }, []);
     const handleLogout = useCallback(async () => { setAuthError(''); try { await logOut(); } catch { setAuthError('Erro logout.'); } }, []);
     const handleCreateProfile = useCallback(async (name) => { if (!user) return; setProfileError(''); try { await createProfile(user.uid, name); alert('Perfil criado!'); } catch (e) { setProfileError(e.message || 'Erro criar perfil.'); throw e;} }, [user]);
     const handleSelectProfile = useCallback((id) => { if (id !== selectedProfile) { setDataError(''); setProfileError(''); setSelectedProfile(id); } }, [selectedProfile]);
-    // Data Ops
     const addItem = useCallback((itemType, newItemData) => {
         if (!user || !selectedProfile) return;
         const listName = `${itemType}List`;
@@ -903,180 +924,93 @@ const FinancialApp = () => {
             paymentDate: newItemData.paymentDate ?? null,
             card: newItemData.card ?? null
         };
-        const sanitizedItem = Object.entries(newItem).reduce((a, [k, v]) => {
-            if (v !== undefined) a[k] = v;
-            return a;
-        }, {});
-        setFinancialData(prev => ({
-            ...prev,
-            [listName]: [...(prev[listName] || []), sanitizedItem]
-        }));
+        const sanitizedItem = Object.entries(newItem).reduce((a, [k, v]) => { if (v !== undefined) a[k] = v; return a; }, {});
+        setFinancialData(prev => ({ ...prev, [listName]: [...(prev[listName] || []), sanitizedItem] }));
     }, [user, selectedProfile]);
     const removeItem = useCallback((itemType, idToRemove) => {
         if (!user || !selectedProfile || !itemType || !idToRemove) return;
         const listName = `${itemType}List`;
-        setFinancialData(prevData => {
-            const currentList = prevData[listName] || [];
-            return { ...prevData, [listName]: currentList.filter(item => String(item.id) !== String(idToRemove)) };
-        });
+        setFinancialData(prevData => { const currentList = prevData[listName] || []; return { ...prevData, [listName]: currentList.filter(item => String(item.id) !== String(idToRemove)) }; });
     }, [user, selectedProfile]);
     const updateItem = useCallback((itemType, idToUpdate, updatedData) => {
         if (!user || !selectedProfile || !itemType || !idToUpdate) return;
         const listName = `${itemType}List`;
-
         const itemToUpdateCheck = financialData[listName]?.find(i => String(i.id) === String(idToUpdate));
-        if (itemToUpdateCheck?.isInstallment) {
-            return;
-        }
-
+        if (itemToUpdateCheck?.isInstallment) return;
         const dataWithTimestamp = { ...updatedData, updatedAt: new Date().toISOString() };
-        const sanitizedUpdate = Object.entries(dataWithTimestamp).reduce((acc, [key, value]) => {
-            if (value !== undefined) acc[key] = value;
-            return acc;
-        }, {});
-        setFinancialData(prevData => {
-            const currentList = prevData[listName] || [];
-            return {
-                ...prevData,
-                [listName]: currentList.map(item =>
-                    String(item.id) === String(idToUpdate)
-                    ? { ...item, ...sanitizedUpdate }
-                    : item
-                )
-            };
-        });
+        const sanitizedUpdate = Object.entries(dataWithTimestamp).reduce((acc, [key, value]) => { if (value !== undefined) acc[key] = value; return acc; }, {});
+        setFinancialData(prevData => { const currentList = prevData[listName] || []; return { ...prevData, [listName]: currentList.map(item => String(item.id) === String(idToUpdate) ? { ...item, ...sanitizedUpdate } : item ) }; });
     }, [user, selectedProfile, financialData]);
 
-    // Installment Group Handlers
     const removeInstallmentGroup = useCallback((groupIdToRemove) => {
         if (!user || !selectedProfile || !groupIdToRemove) return;
-        setFinancialData(prevData => {
-            const currentExpenses = prevData.expenseList || [];
-            return { ...prevData, expenseList: currentExpenses.filter(item => {
-                 const itemGroupId = item.installmentInfo?.groupId ?? item.groupId;
-                 return !(item.isInstallment && itemGroupId === groupIdToRemove);
-             }) };
-        });
+        setFinancialData(prevData => { const currentExpenses = prevData.expenseList || []; return { ...prevData, expenseList: currentExpenses.filter(item => { const itemGroupId = item.installmentInfo?.groupId ?? item.groupId; return !(item.isInstallment && itemGroupId === groupIdToRemove); }) }; });
     }, [user, selectedProfile]);
 
     const updateInstallmentGroup = useCallback((groupIdToUpdate, editedItemId, updatedFields) => {
-        if (!user || !selectedProfile || !groupIdToUpdate || !editedItemId) {
-            console.error("[updateInstallmentGroup Error] Faltando IDs", { userId: user?.uid, profileId: selectedProfile, groupId: groupIdToUpdate, editedItemId });
-            return;
-        }
-
+        if (!user || !selectedProfile || !groupIdToUpdate || !editedItemId) { console.error("[updateInstallmentGroup Error] Faltando IDs", { userId: user?.uid, profileId: selectedProfile, groupId: groupIdToUpdate, editedItemId }); return; }
         setFinancialData(prevData => {
             const currentExpenses = prevData.expenseList || [];
             let hasChangedOverall = false;
-
             const updatedList = currentExpenses.map(item => {
                 const itemGroupId = item.installmentInfo?.groupId ?? item.groupId;
-
                 if (item.isInstallment && itemGroupId === groupIdToUpdate) {
-
                     const totalMonths = item.installmentInfo?.totalMonths ?? item.totalMonths ?? '?';
                     const currentInstallment = item.installmentInfo?.currentInstallment ?? (item.currentMonthIndex !== undefined ? item.currentMonthIndex + 1 : '?');
-
                     const descriptionMatch = String(updatedFields.description || '').match(/^(.*?)(?:\s*\(\d+\/\d+\))?$/);
                     const baseDescription = descriptionMatch ? descriptionMatch[1].trim() : item.description.replace(/\s*\(\d+\/\d+\)$/, '').trim();
                     const newDescription = `${baseDescription || 'Parcela'} (${currentInstallment}/${totalMonths})`;
-
-                    let itemUpdate = { ...item };
-                    let itemSpecificChange = false;
-
-                    if (updatedFields.description !== undefined && item.description !== newDescription) {
-                        itemUpdate.description = newDescription;
-                        itemSpecificChange = true;
-                    }
-                    if (updatedFields.category !== undefined && item.category !== (updatedFields.category || null)) {
-                        itemUpdate.category = updatedFields.category || null;
-                        itemSpecificChange = true;
-                    }
-                    if (updatedFields.card !== undefined && item.card !== (updatedFields.card || null)) {
-                        itemUpdate.card = updatedFields.card || null;
-                        itemSpecificChange = true;
-                    }
-
-                    const itemIdStr = String(item.id);
-                    const editedItemIdStr = String(editedItemId);
-
+                    let itemUpdate = { ...item }; let itemSpecificChange = false;
+                    if (updatedFields.description !== undefined && item.description !== newDescription) { itemUpdate.description = newDescription; itemSpecificChange = true; }
+                    if (updatedFields.category !== undefined && item.category !== (updatedFields.category || null)) { itemUpdate.category = updatedFields.category || null; itemSpecificChange = true; }
+                    if (updatedFields.card !== undefined && item.card !== (updatedFields.card || null)) { itemUpdate.card = updatedFields.card || null; itemSpecificChange = true; }
+                    const itemIdStr = String(item.id); const editedItemIdStr = String(editedItemId);
                     if (itemIdStr === editedItemIdStr) {
                         const newAmount = updatedFields.amount !== undefined ? parseFloat(updatedFields.amount) : item.amount;
-                         if (item.amount !== newAmount) {
-                            itemUpdate.amount = newAmount;
-                            itemSpecificChange = true;
-                         }
-                         if (updatedFields.date !== undefined && item.date !== updatedFields.date) {
-                             itemUpdate.date = updatedFields.date;
-                             itemSpecificChange = true;
-                         }
-                         if (updatedFields.paymentDate !== undefined && item.paymentDate !== updatedFields.paymentDate) {
-                             itemUpdate.paymentDate = updatedFields.paymentDate;
-                             itemSpecificChange = true;
-                         }
-                          if (updatedFields.paymentMethod !== undefined && item.paymentMethod !== updatedFields.paymentMethod) {
-                             itemUpdate.paymentMethod = updatedFields.paymentMethod;
-                             itemSpecificChange = true;
-                         }
+                         if (item.amount !== newAmount) { itemUpdate.amount = newAmount; itemSpecificChange = true; }
+                         if (updatedFields.date !== undefined && item.date !== updatedFields.date) { itemUpdate.date = updatedFields.date; itemSpecificChange = true; }
+                         if (updatedFields.paymentDate !== undefined && item.paymentDate !== updatedFields.paymentDate) { itemUpdate.paymentDate = updatedFields.paymentDate; itemSpecificChange = true; }
+                          if (updatedFields.paymentMethod !== undefined && item.paymentMethod !== updatedFields.paymentMethod) { itemUpdate.paymentMethod = updatedFields.paymentMethod; itemSpecificChange = true; }
                     }
-
-                    if (itemSpecificChange) {
-                        itemUpdate.updatedAt = new Date().toISOString();
-                        hasChangedOverall = true;
-                        return itemUpdate;
-                    } else {
-                        return item;
-                    }
+                    if (itemSpecificChange) { itemUpdate.updatedAt = new Date().toISOString(); hasChangedOverall = true; return itemUpdate; } else { return item; }
                 }
                 return item;
             });
-
-            if (hasChangedOverall) {
-                return { ...prevData, expenseList: updatedList };
-            } else {
-                return prevData;
-            }
+            if (hasChangedOverall) { return { ...prevData, expenseList: updatedList }; } else { return prevData; }
         });
     }, [user, selectedProfile]);
 
+    const allCategoriesForFilter = useMemo(() => {
+        const categories = new Set();
+        (financialData.incomeList || []).forEach(item => item.category && categories.add(item.category));
+        (financialData.expenseList || []).forEach(item => item.category && categories.add(item.category));
+        (financialData.recurringList || []).forEach(item => item.category && categories.add(item.category));
+        const hasUncategorized = (financialData.incomeList || []).some(item => !item.category) || (financialData.expenseList || []).some(item => !item.category) || (financialData.recurringList || []).some(item => !item.category);
+        if (hasUncategorized) { categories.add('Sem Categoria'); }
+        return Array.from(categories).sort(categorySorter);
+    }, [financialData]);
 
-    // Calculations
-    const { effectiveMonthlyIncome, effectiveMonthlyExpenses, effectiveMonthlyRecurring } = useMemo(() => {
-        const filter = (item) => {
-            const d = getEffectiveDateForFiltering(item);
-            return d && !isNaN(d.getTime()) && d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear;
-        };
-        const filteredExpenses = (financialData.expenseList || []).filter(filter);
-        const filteredRecurring = (financialData.recurringList || []).filter(filter);
-        const filteredIncome = (financialData.incomeList || []).filter(filter);
-        return {
-            effectiveMonthlyIncome: filteredIncome,
-            effectiveMonthlyExpenses: filteredExpenses,
-            effectiveMonthlyRecurring: filteredRecurring,
-        };
-    }, [financialData, selectedMonth, selectedYear]);
+    const { effectiveMonthlyIncome, effectiveMonthlyExpenses, effectiveMonthlyRecurring, allFilteredRecurringForTab } = useMemo(() => {
+        const filterByMonthYear = (item) => { const d = getEffectiveDateForFiltering(item); return d && !isNaN(d.getTime()) && d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear; };
+        const filterByDescriptionGlobal = (item) => { if (!descriptionFilter.trim()) return true; return item.description && item.description.toLowerCase().includes(descriptionFilter.trim().toLowerCase()); };
+        const filterByCategoryGlobal = (item) => { if (!selectedCategoryFilter) return true; const itemCategory = item.category || 'Sem Categoria'; return itemCategory === selectedCategoryFilter; };
+        const combinedMonthlyFilter = (item) => filterByMonthYear(item) && filterByDescriptionGlobal(item) && filterByCategoryGlobal(item);
+        const emi = (financialData.incomeList || []).filter(combinedMonthlyFilter);
+        const eme = (financialData.expenseList || []).filter(combinedMonthlyFilter);
+        const emr = (financialData.recurringList || []).filter(combinedMonthlyFilter);
+        const afrft = (financialData.recurringList || []).filter(item => filterByDescriptionGlobal(item) && filterByCategoryGlobal(item));
+        return { effectiveMonthlyIncome: emi, effectiveMonthlyExpenses: eme, effectiveMonthlyRecurring: emr, allFilteredRecurringForTab: afrft, };
+    }, [financialData, selectedMonth, selectedYear, descriptionFilter, selectedCategoryFilter]);
 
     const allIncomeList = useMemo(() => financialData.incomeList || [], [financialData.incomeList]); const allExpenseList = useMemo(() => financialData.expenseList || [], [financialData.expenseList]); const allRecurringExpensesList = useMemo(() => financialData.recurringList || [], [financialData.recurringList]);
     const totals = useMemo(() => { const singleExp = effectiveMonthlyExpenses.filter(i => !i.isInstallment).reduce((s, i) => s + (i.amount || 0), 0); const instExp = effectiveMonthlyExpenses.filter(i => i.isInstallment).reduce((s, i) => s + (i.amount || 0), 0); const recurExp = effectiveMonthlyRecurring.reduce((s, i) => s + (i.amount || 0), 0); return { totalIncome: effectiveMonthlyIncome.reduce((s, i) => s + (i.amount || 0), 0), totalExpenses: singleExp, totalInstallments: instExp, totalRecurring: recurExp, }; }, [effectiveMonthlyIncome, effectiveMonthlyExpenses, effectiveMonthlyRecurring]);
     const balance = useMemo(() => totals.totalIncome - (totals.totalExpenses + totals.totalInstallments + totals.totalRecurring), [totals]);
     const expensesByCategory = useMemo(() => {
-        const combinedExpenses = [
-            ...effectiveMonthlyExpenses,
-            ...effectiveMonthlyRecurring
-        ];
-        const grouped = combinedExpenses.reduce((acc, item) => {
-            const category = item.category || 'Sem Categoria';
-            const currentTotal = acc[category] || 0;
-            acc[category] = currentTotal + (Number(item.amount) || 0);
-            return acc;
-        }, {});
-        return Object.entries(grouped)
-            .map(([name, value]) => ({ name, value }))
-            .filter(item => item.value > 0)
-            .sort((a, b) => b.value - a.value);
+        const combinedExpenses = [ ...effectiveMonthlyExpenses, ...effectiveMonthlyRecurring ];
+        const grouped = combinedExpenses.reduce((acc, item) => { const category = item.category || 'Sem Categoria'; const currentTotal = acc[category] || 0; acc[category] = currentTotal + (Number(item.amount) || 0); return acc; }, {});
+        return Object.entries(grouped).map(([name, value]) => ({ name, value })).filter(item => item.value > 0).sort((a, b) => b.value - a.value);
     }, [effectiveMonthlyExpenses, effectiveMonthlyRecurring]);
 
-    // Render Logic
     const isLoading = loadingAuth || loadingProfiles || loadingData;
     if (loadingAuth && !user) return <div className="loading-screen">Carregando...</div>;
 
@@ -1086,88 +1020,36 @@ const FinancialApp = () => {
                 <>
                     <Header user={user} profiles={profiles} selectedProfile={selectedProfile} onSelectProfile={handleSelectProfile} onCreateProfile={handleCreateProfile} onLogout={handleLogout} />
                      <div className="status-bar">
-                        {isSaving && <span className="saving-text">Salvando...</span>}
-                        {dataError && <span className="error-text">{dataError}</span>}
-                        {profileError && <span className="error-text">{profileError}</span>}
-                        {authError && <span className="error-text">{authError}</span>}
-                        {!isSaving && !dataError && !profileError && !authError && <span> </span>}
+                        {isSaving && <span className="saving-text">Salvando...</span>} {dataError && <span className="error-text">{dataError}</span>} {profileError && <span className="error-text">{profileError}</span>} {authError && <span className="error-text">{authError}</span>} {!isSaving && !dataError && !profileError && !authError && <span> </span>}
                     </div>
                      {!selectedProfile && !loadingProfiles && !isLoading && ( <div className="profile-prompt"> Selecione ou crie um perfil para começar. </div> )}
                     {selectedProfile ? (
                         <main className="flex-grow container mx-auto px-2 sm:px-4 pb-4 sm:pb-8">
                              <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
                             <MonthYearSelector selectedMonth={selectedMonth} selectedYear={selectedYear} setSelectedMonth={(m) => setCurrentMonthYear(p => ({ ...p, month: m }))} setSelectedYear={(y) => setCurrentMonthYear(p => ({ ...p, year: y }))} />
+                            <div className="my-4 sm:my-6 px-2 flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
+                                <input type="text" placeholder="Pesquisar por descrição..." value={descriptionFilter} onChange={(e) => setDescriptionFilter(e.target.value)} className="input-base w-full sm:flex-1 sm:max-w-md focus:ring-cyan-400 shadow-sm" />
+                                <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-xs">
+                                    <select value={selectedCategoryFilter} onChange={(e) => setSelectedCategoryFilter(e.target.value)} className="input-base w-full appearance-none cursor-pointer focus:ring-cyan-400 pr-8" title="Filtrar por Categoria" >
+                                        <option value="">Todas as Categorias</option>
+                                        {allCategoriesForFilter.map(cat => ( <option key={cat} value={cat}>{cat}</option> ))}
+                                    </select>
+                                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">▼</span>
+                                </div>
+                            </div>
                             {isLoading && <div className="loading-data">Carregando dados...</div>}
                             {!isLoading && (
                                 <div>
-                                    {activeTab === 'dashboard' &&
-                                        <DashboardView
-                                            totals={totals}
-                                            balance={balance}
-                                            formatCurrency={formatCurrency}
-                                            expensesByCategory={expensesByCategory}
-                                        />}
-                                    {activeTab === 'income' &&
-                                        <TransactionSection
-                                            title="Gerenciar Receitas"
-                                            items={effectiveMonthlyIncome}
-                                            fullList={allIncomeList}
-                                            onAddItem={(d)=>addItem('income',d)}
-                                            onRemoveItem={(id)=>removeItem('income',id)}
-                                            onUpdateItem={(id,d)=>updateItem('income',id,d)}
-                                            itemTypeColor="green-400"
-                                            baseColor="green"
-                                            categories={DEFAULT_CATEGORIES}
-                                            formatCurrency={formatCurrency}
-                                            formatDateDisplay={formatDateDisplay}
-                                            selectedMonth={selectedMonth}
-                                            selectedYear={selectedYear}
-                                        />}
-                                    {activeTab === 'expenses' &&
-                                        <TransactionSection
-                                            title="Gerenciar Despesas"
-                                            items={effectiveMonthlyExpenses.filter(i => !i.isInstallment)}
-                                            fullList={allExpenseList}
-                                            onAddItem={(d)=>addItem('expense',d)}
-                                            onRemoveItem={(id)=>removeItem('expense',id)}
-                                            onUpdateItem={(id,d)=>updateItem('expense',id,d)}
-                                            removeInstallmentGroup={removeInstallmentGroup}
-                                            updateInstallmentGroup={updateInstallmentGroup}
-                                            itemTypeColor="red-400"
-                                            baseColor="red"
-                                            categories={DEFAULT_CATEGORIES}
-                                            showCardOption={true} cards={CARDS}
-                                            formatCurrency={formatCurrency}
-                                            formatDateDisplay={formatDateDisplay}
-                                            selectedMonth={selectedMonth}
-                                            selectedYear={selectedYear}
-                                        />}
-                                    {activeTab === 'recurring' &&
-                                        <TransactionSection
-                                            title="Gerenciar Despesas Recorrentes"
-                                            items={allRecurringExpensesList}
-                                            fullList={allRecurringExpensesList}
-                                            onAddItem={(d)=>addItem('recurring',d)}
-                                            onRemoveItem={(id)=>removeItem('recurring',id)}
-                                            onUpdateItem={(id,d)=>updateItem('recurring',id,d)}
-                                            itemTypeColor="orange-400"
-                                            baseColor="orange"
-                                            categories={DEFAULT_CATEGORIES}
-                                            showCardOption={true} cards={CARDS}
-                                            formatCurrency={formatCurrency}
-                                            formatDateDisplay={formatDateDisplay}
-                                            selectedMonth={selectedMonth}
-                                            selectedYear={selectedYear}
-                                            isRecurring={true}
-                                        />}
+                                    {activeTab === 'dashboard' && <DashboardView totals={totals} balance={balance} formatCurrency={formatCurrency} expensesByCategory={expensesByCategory} />}
+                                    {activeTab === 'income' && <TransactionSection title="Gerenciar Receitas" items={effectiveMonthlyIncome} fullList={allIncomeList} onAddItem={(d)=>addItem('income',d)} onRemoveItem={(id)=>removeItem('income',id)} onUpdateItem={(id,d)=>updateItem('income',id,d)} itemTypeColor="green-400" baseColor="green" categories={DEFAULT_CATEGORIES} formatCurrency={formatCurrency} formatDateDisplay={formatDateDisplay} selectedMonth={selectedMonth} selectedYear={selectedYear} />}
+                                    {activeTab === 'expenses' && <TransactionSection title="Gerenciar Despesas" items={effectiveMonthlyExpenses.filter(i => !i.isInstallment)} fullList={allExpenseList} onAddItem={(d)=>addItem('expense',d)} onRemoveItem={(id)=>removeItem('expense',id)} onUpdateItem={(id,d)=>updateItem('expense',id,d)} removeInstallmentGroup={removeInstallmentGroup} updateInstallmentGroup={updateInstallmentGroup} itemTypeColor="red-400" baseColor="red" categories={DEFAULT_CATEGORIES} showCardOption={true} cards={CARDS} formatCurrency={formatCurrency} formatDateDisplay={formatDateDisplay} selectedMonth={selectedMonth} selectedYear={selectedYear} descriptionFilter={descriptionFilter} selectedCategoryFilter={selectedCategoryFilter} />}
+                                    {activeTab === 'recurring' && <TransactionSection title="Gerenciar Despesas Recorrentes" items={allFilteredRecurringForTab} fullList={allRecurringExpensesList} onAddItem={(d)=>addItem('recurring',d)} onRemoveItem={(id)=>removeItem('recurring',id)} onUpdateItem={(id,d)=>updateItem('recurring',id,d)} itemTypeColor="orange-400" baseColor="orange" categories={DEFAULT_CATEGORIES} showCardOption={true} cards={CARDS} formatCurrency={formatCurrency} formatDateDisplay={formatDateDisplay} selectedMonth={selectedMonth} selectedYear={selectedYear} isRecurring={true} />}
                                 </div>
                             )}
                         </main>
                     ) : ( !isLoading && !loadingProfiles && <div className="no-profile-selected">Selecione ou crie um perfil.</div> )}
                     <footer className="app-footer">
-                         <p> Desenvolvido por{' '}
-                             <span className="developer-name animate-pulse"> Wellington Beraldo </span>
-                         </p>
+                         <p> Desenvolvido por <span className="developer-name animate-pulse"> Wellington Beraldo </span> </p>
                     </footer>
                 </>
             )}
@@ -1176,5 +1058,4 @@ const FinancialApp = () => {
 };
 
 export default FinancialApp;
-
-/* --- END OF FILE App.js --- */
+/* --- END OF MODIFIED App.js --- */
