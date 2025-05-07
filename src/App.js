@@ -25,7 +25,7 @@ const CARDS = {
 };
 const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const DEFAULT_CATEGORIES = [
-    'Salário', 'Rendimentos', 'Presente', 'Reembolso', 'Moradia', 'Alimentação', 'Supermercado', 'Transporte', 'Contas Fixas', 'Saúde', 'Educação', 'Lazer', 'Compras', 'Vestuário', 'Viagem', 'Impostos', 'Assinaturas', 'Cuidados Pessoais', 'Presentes/Doações', 'Investimentos (Saída)', 'Taxas Bancárias', 'Sem Categoria', 'Saldo Mês Anterior', 'Cartão de Crédito', 'Empréstimo', 'Financiamento', 'Seguro', 'Streaming', 'Internet', 'Combustível', 'Estacionamento', 'Farmácia'
+    'Salário', 'Rendimentos', 'Presente', 'Reembolso', 'Moradia', 'Alimentação', 'Supermercado', 'Transporte', 'Contas Fixas', 'Saúde', 'Educação', 'Lazer', 'Compras', 'Vestuário', 'Viagem', 'Impostos', 'Assinaturas', 'Cuidados Pessoais', 'Presentes/Doações', 'Investimentos (Saída)', 'Taxas Bancárias', 'Sem Categoria', 'Saldo Mês Anterior', 'Cartão de Crédito', 'Empréstimo', 'Financiamento', 'Seguro', 'Streaming', 'Internet', 'Combustível', 'Estacionamento', 'Farmácia', 'Luz', 'IPVA', 'Condomínio'
   ];
 const INITIAL_TAB = localStorage.getItem('activeTab') || 'dashboard';
 const INITIAL_PROFILE = localStorage.getItem('selectedProfile') || null;
